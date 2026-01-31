@@ -97,25 +97,24 @@ fn run() -> Result<()> {
     // This means the command inherits our sandbox restrictions
     // Set environment variables so agents know they're running under nono
     // and can provide helpful error messages when access is denied
+    // Using env vars is more secure than a file (can't be tampered with after exec)
+    let allowed_paths = if caps.fs.is_empty() {
+        "(none)".to_string()
+    } else {
+        caps.fs
+            .iter()
+            .map(|c| format!("{}[{}]", c.resolved.display(), c.access))
+            .collect::<Vec<_>>()
+            .join(":")
+    };
+
     let err = Command::new(program)
         .args(cmd_args)
         .env("NONO_ACTIVE", "1")
-        .env(
-            "NONO_HELP",
-            "You are running inside a nono sandbox. File access outside granted paths is blocked. \
-             To grant access, ask the user to re-run nono with: \
-             --read <path> (read-only), --write <path> (write-only), or --allow <path> (read+write). \
-             For single files use: --read-file, --write-file, or --allow-file.",
-        )
-        .env(
-            "NONO_SENSITIVE_PATHS",
-            "The following paths are ALWAYS blocked for security (credentials, keys, shell configs): \
-             ~/.ssh, ~/.aws, ~/.gnupg, ~/.kube, ~/.docker, ~/.npmrc, ~/.git-credentials, ~/.netrc, \
-             ~/.password-store, ~/.1password, ~/.vault-token, ~/Library/Keychains, \
-             ~/.zshrc, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.zsh_history, ~/.bash_history, \
-             ~/.config/gcloud, ~/.azure, ~/.terraform.d, ~/.env, ~/.envrc. \
-             These paths require explicit user override to access.",
-        )
+        .env("NONO_ALLOWED", &allowed_paths)
+        .env("NONO_NET", if caps.net_allow { "allowed" } else { "blocked" })
+        .env("NONO_BLOCKED", "~/.ssh:~/.aws:~/.gnupg:~/.kube:~/.docker:~/.npmrc:~/.git-credentials:~/.netrc:~/.zshrc:~/.bashrc:~/.profile:~/.bash_history:~/.zsh_history:~/Library/Keychains")
+        .env("NONO_HELP", "To request access, ask user to re-run nono with: --read <path>, --write <path>, --allow <path> for directories; --read-file, --write-file, --allow-file for single files")
         .exec();
 
     // exec() only returns if there's an error
