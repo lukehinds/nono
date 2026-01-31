@@ -17,8 +17,8 @@
     <a href="https://opensource.org/licenses/Apache-2.0">
       <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/>
     </a>
-    <a href="https://github.com/lukehinds/nono/actions/workflows/test.yml">
-      <img src="https://github.com/lukehinds/nono/actions/workflows/test.yml/badge.svg" alt="CI Status"/>
+    <a href="https://github.com/lukehinds/nono/actions/workflows/ci.yml">
+      <img src="https://github.com/lukehinds/nono/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
     </a>
     <a href="https://discord.gg/pPcjYzGvbS">
       <img src="https://img.shields.io/discord/1384081906773131274?color=7289da&label=Discord&logo=discord&logoColor=white" alt="Discord"/>
