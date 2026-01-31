@@ -35,16 +35,16 @@ pub fn support_info() -> String {
             };
             format!("Landlock ABI v{} available", version)
         }
-        None => "Landlock not available. Requires Linux kernel 5.13+ with Landlock enabled.".to_string()
+        None => {
+            "Landlock not available. Requires Linux kernel 5.13+ with Landlock enabled.".to_string()
+        }
     }
 }
 
 /// Convert FsAccess to Landlock AccessFs flags
 fn access_to_landlock(access: FsAccess, abi: ABI) -> AccessFs {
     match access {
-        FsAccess::Read => {
-            AccessFs::ReadFile | AccessFs::ReadDir | AccessFs::Execute
-        }
+        FsAccess::Read => AccessFs::ReadFile | AccessFs::ReadDir | AccessFs::Execute,
         FsAccess::Write => {
             let mut flags = AccessFs::WriteFile
                 | AccessFs::RemoveFile
@@ -74,7 +74,8 @@ fn access_to_landlock(access: FsAccess, abi: ABI) -> AccessFs {
 pub fn apply(caps: &CapabilitySet) -> Result<()> {
     let abi = detect_abi().ok_or_else(|| {
         NonoError::SandboxInit(
-            "Landlock not available. Requires Linux kernel 5.13+ with Landlock enabled.".to_string(),
+            "Landlock not available. Requires Linux kernel 5.13+ with Landlock enabled."
+                .to_string(),
         )
     })?;
 

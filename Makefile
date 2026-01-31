@@ -1,0 +1,39 @@
+.PHONY: all build release test lint format audit clean
+
+all: build
+
+# Debug build
+build:
+	cargo build
+
+# Release build with optimizations
+release:
+	cargo build --release
+
+# Run all tests
+test:
+	cargo test
+
+# Run clippy linter with strict settings
+lint:
+	cargo clippy -- -D warnings -D clippy::unwrap_used
+
+# Format code
+format:
+	cargo fmt
+
+# Check formatting without modifying files
+format-check:
+	cargo fmt -- --check
+
+# Security audit dependencies
+audit:
+	cargo audit
+	cargo deny check
+
+# Run all checks (useful for CI)
+check: format-check lint test audit
+
+# Clean build artifacts
+clean:
+	cargo clean

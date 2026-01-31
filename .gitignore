@@ -1,1 +1,8 @@
 /target
+.vscode/
+.idea/
+.DS_Store
+
+# Claude state and config
+~/.claude.json
+specs/

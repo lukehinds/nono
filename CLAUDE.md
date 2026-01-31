@@ -20,6 +20,8 @@ src/
 
 ## Build & Test
 
+After evevry session at the end of completing a task, run the following commands to ensure correctness:
+
 ```bash
 # Build
 cargo build
@@ -32,6 +34,18 @@ RUST_LOG=debug cargo run -- --allow . -- echo "test"
 
 # Dry run (show capabilities without applying sandbox)
 cargo run -- --allow . --dry-run -- command
+```
+
+## Lint and Format
+
+After evevry session at the end of completing a task, run the following commands to ensure correctness:
+
+```bash
+# Lint code
+cargo clippy -- -D warnings -D clippy::unwrap_used
+
+# Format code
+cargo fmt -- --check
 ```
 
 ## Key Design Decisions
@@ -86,6 +100,21 @@ nono --allow . -- sh -c "echo test > /tmp/outside.txt"
 # Should fail (network blocked)
 nono --allow . -- curl https://example.com
 ```
+
+## Coding Standards
+- Error Handling: Use NonoError for all errors; propagation via ? only.
+- Unwrap Policy: Strictly forbid .unwrap() and .expect(); use clippy::unwrap_used to enforce.
+- Unsafe Code: Restrict unsafe to FFI; must be wrapped in safe APIs with // SAFETY: docs.
+- Path Security: Validate and canonicalize all paths before applying capabilities.
+- Arithmetic: Use checked_, saturating_, or overflowing_ methods for security-critical math.
+- Memory: Use the zeroize crate for sensitive data (keys/passwords) in memory.
+- Dependencies: Mandatory cargo-audit and cargo-deny checks in CI.
+- Testing: Write unit tests for all new capability types and sandbox logic.
+- Attributes: Apply #[must_use] to all functions returning critical Results.
+
+## Security Considerations
+- Principle of Least Privilege: Only grant necessary capabilities.
+- Defense in Depth: Combine OS-level sandboxing with application-level checks.
 
 ## References
 

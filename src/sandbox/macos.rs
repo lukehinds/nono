@@ -16,11 +16,7 @@ use tracing::{debug, info};
 const SANDBOX_NAMED: u32 = 0x0001;
 
 extern "C" {
-    fn sandbox_init(
-        profile: *const c_char,
-        flags: u64,
-        errorbuf: *mut *mut c_char,
-    ) -> i32;
+    fn sandbox_init(profile: *const c_char, flags: u64, errorbuf: *mut *mut c_char) -> i32;
 
     fn sandbox_free_error(errorbuf: *mut c_char);
 }
@@ -98,10 +94,7 @@ fn get_sensitive_paths() -> Vec<String> {
 
     // Expand ~ to actual home directory
     if let Ok(home) = std::env::var("HOME") {
-        paths = paths
-            .into_iter()
-            .map(|p| p.replace("~", &home))
-            .collect();
+        paths = paths.into_iter().map(|p| p.replace("~", &home)).collect();
     }
 
     paths
@@ -175,16 +168,10 @@ fn generate_profile(caps: &CapabilitySet) -> String {
 
         match cap.access {
             FsAccess::Read => {
-                profile.push_str(&format!(
-                    "(allow file-read* ({}))\n",
-                    path_filter
-                ));
+                profile.push_str(&format!("(allow file-read* ({}))\n", path_filter));
             }
             FsAccess::Write => {
-                profile.push_str(&format!(
-                    "(allow file-write* ({}))\n",
-                    path_filter
-                ));
+                profile.push_str(&format!("(allow file-write* ({}))\n", path_filter));
             }
             FsAccess::ReadWrite => {
                 profile.push_str(&format!(
@@ -244,7 +231,7 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
     let result = unsafe {
         sandbox_init(
             profile_cstr.as_ptr(),
-            0,  // Raw profile mode
+            0, // Raw profile mode
             &mut error_buf,
         )
     };

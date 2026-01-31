@@ -3,7 +3,7 @@
     <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-light.png" />
     <img alt="NONO logo" src="./assets/nono-mascot.png" style="width:80%;max-width:80%;height:auto;display:block;margin:0 auto;" />
   </picture>
-  <h3>*The opposite of YOLO* - a security shell for AI agents</h3>
+  <h3>Me no YOLO! Me NONO!</h3>
 
   <!-- CTA Buttons -->
   <p>
@@ -26,9 +26,9 @@
   </p>
 </div>
 
-> The opposite of YOLO - a capability shell for AI agents.
+## A secure shell for AI agents.
 
-**nono** is a secure, OS-enforced capability shell for running untrusted AI agents and processes. Unlike policy-based sandboxes that intercept and filter operations, nono leverages OS security primitives (Landlock on Linux, Seatbelt on macOS) to create an environment where unauthorized operations are structurally impossible.
+**NONO** is a secure, OS-enforced capability shell for running untrusted AI agents and processes. Unlike policy-based sandboxes that intercept and filter operations, NONO leverages OS security primitives (Landlock on Linux, Seatbelt on macOS) to create an environment where unauthorized operations are structurally impossible.
 
 ## Quick Start
 

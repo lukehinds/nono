@@ -1,7 +1,8 @@
 use crate::cli::Args;
 use crate::error::{NonoError, Result};
+use crate::profile::{self, Profile};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Filesystem access mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,10 +52,12 @@ impl FsCapability {
         }
 
         // Canonicalize to absolute path, resolving symlinks
-        let resolved = path.canonicalize().map_err(|e| NonoError::PathCanonicalization {
-            path: path.clone(),
-            source: e,
-        })?;
+        let resolved = path
+            .canonicalize()
+            .map_err(|e| NonoError::PathCanonicalization {
+                path: path.clone(),
+                source: e,
+            })?;
 
         Ok(Self {
             original: path,
@@ -77,10 +80,12 @@ impl FsCapability {
         }
 
         // Canonicalize to absolute path, resolving symlinks
-        let resolved = path.canonicalize().map_err(|e| NonoError::PathCanonicalization {
-            path: path.clone(),
-            source: e,
-        })?;
+        let resolved = path
+            .canonicalize()
+            .map_err(|e| NonoError::PathCanonicalization {
+                path: path.clone(),
+                source: e,
+            })?;
 
         Ok(Self {
             original: path,
@@ -96,7 +101,6 @@ impl std::fmt::Display for FsCapability {
         write!(f, "{} ({})", self.resolved.display(), self.access)
     }
 }
-
 
 /// The complete set of capabilities granted to the sandbox
 #[derive(Debug, Clone, Default)]
@@ -161,6 +165,92 @@ impl CapabilitySet {
 
         // Process --net-allow flag
         caps.net_allow = args.net_allow;
+
+        Ok(caps)
+    }
+
+    /// Build capabilities from a profile, with CLI overrides
+    pub fn from_profile(profile: &Profile, workdir: &Path, args: &Args) -> Result<Self> {
+        let mut caps = Self::new();
+
+        // Helper to process profile paths and add capabilities
+        fn process_profile_paths(
+            caps: &mut CapabilitySet,
+            paths: &[String],
+            workdir: &Path,
+            access: FsAccess,
+            is_file: bool,
+        ) -> Result<()> {
+            for path_str in paths {
+                let path = profile::expand_vars(path_str, workdir);
+                if is_file {
+                    if path.exists() && path.is_file() {
+                        caps.add_fs(FsCapability::new_file(path, access)?);
+                    } else if path.exists() {
+                        tracing::warn!(
+                            "Profile path '{}' exists but is not a file, skipping",
+                            path.display()
+                        );
+                    } else {
+                        tracing::warn!("Profile path '{}' not found, skipping", path.display());
+                    }
+                } else if path.exists() && path.is_dir() {
+                    caps.add_fs(FsCapability::new_dir(path, access)?);
+                } else if path.exists() {
+                    tracing::warn!(
+                        "Profile path '{}' exists but is not a directory, skipping",
+                        path.display()
+                    );
+                } else {
+                    tracing::warn!("Profile path '{}' not found, skipping", path.display());
+                }
+            }
+            Ok(())
+        }
+
+        // Process profile directory permissions
+        process_profile_paths(&mut caps, &profile.filesystem.allow, workdir, FsAccess::ReadWrite, false)?;
+        process_profile_paths(&mut caps, &profile.filesystem.read, workdir, FsAccess::Read, false)?;
+        process_profile_paths(&mut caps, &profile.filesystem.write, workdir, FsAccess::Write, false)?;
+
+        // Process profile file permissions
+        process_profile_paths(&mut caps, &profile.filesystem.allow_file, workdir, FsAccess::ReadWrite, true)?;
+        process_profile_paths(&mut caps, &profile.filesystem.read_file, workdir, FsAccess::Read, true)?;
+        process_profile_paths(&mut caps, &profile.filesystem.write_file, workdir, FsAccess::Write, true)?;
+
+        // Merge CLI overrides (extend the profile)
+        for path in &args.allow {
+            let cap = FsCapability::new_dir(path.clone(), FsAccess::ReadWrite)?;
+            caps.add_fs(cap);
+        }
+
+        for path in &args.read {
+            let cap = FsCapability::new_dir(path.clone(), FsAccess::Read)?;
+            caps.add_fs(cap);
+        }
+
+        for path in &args.write {
+            let cap = FsCapability::new_dir(path.clone(), FsAccess::Write)?;
+            caps.add_fs(cap);
+        }
+
+        for path in &args.allow_file {
+            let cap = FsCapability::new_file(path.clone(), FsAccess::ReadWrite)?;
+            caps.add_fs(cap);
+        }
+
+        for path in &args.read_file {
+            let cap = FsCapability::new_file(path.clone(), FsAccess::Read)?;
+            caps.add_fs(cap);
+        }
+
+        for path in &args.write_file {
+            let cap = FsCapability::new_file(path.clone(), FsAccess::Write)?;
+            caps.add_fs(cap);
+        }
+
+        // Network: profile OR CLI flag enables network
+        caps.net_allow = profile.network.allow || args.net_allow;
 
         Ok(caps)
     }
@@ -283,6 +373,9 @@ mod tests {
             read_file: vec![],
             write_file: vec![],
             net_allow: true,
+            profile: None,
+            workdir: None,
+            trust_unsigned: false,
             config: None,
             verbose: 0,
             dry_run: false,
@@ -309,6 +402,9 @@ mod tests {
             read_file: vec![],
             write_file: vec![file_path],
             net_allow: false,
+            profile: None,
+            workdir: None,
+            trust_unsigned: false,
             config: None,
             verbose: 0,
             dry_run: false,
@@ -336,6 +432,9 @@ mod tests {
             read_file: vec![],
             write_file: vec![],
             net_allow: false,
+            profile: None,
+            workdir: None,
+            trust_unsigned: false,
             config: None,
             verbose: 0,
             dry_run: false,

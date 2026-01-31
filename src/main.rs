@@ -1,11 +1,12 @@
 mod capability;
 mod cli;
 mod error;
+mod profile;
 mod sandbox;
 
+use capability::CapabilitySet;
 use clap::Parser;
 use cli::Args;
-use capability::CapabilitySet;
 use error::{NonoError, Result};
 use std::os::unix::process::CommandExt;
 use std::process::Command;
@@ -16,8 +17,7 @@ fn main() {
     // Initialize logging
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("warn")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn")),
         )
         .with_target(false)
         .init();
@@ -48,11 +48,22 @@ fn run() -> Result<()> {
         return Err(NonoError::NoCommand);
     }
 
-    // Build capabilities from arguments
-    let caps = CapabilitySet::from_args(&args)?;
+    // Build capabilities from profile or arguments
+    let caps = if let Some(ref profile_name) = args.profile {
+        let prof = profile::load_profile(profile_name, args.trust_unsigned)?;
+        let workdir = args
+            .workdir
+            .clone()
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        CapabilitySet::from_profile(&prof, &workdir, &args)?
+    } else {
+        CapabilitySet::from_args(&args)?
+    };
 
-    // Check if any capabilities are specified
-    if !caps.has_fs() {
+    // Check if any capabilities are specified (must have fs or network)
+    // This check applies regardless of whether capabilities came from a profile or CLI args
+    if !caps.has_fs() && !caps.net_allow {
         return Err(NonoError::NoCapabilities);
     }
 
@@ -135,6 +146,9 @@ mod tests {
             read_file: vec![],
             write_file: vec![],
             net_allow: false,
+            profile: None,
+            workdir: None,
+            trust_unsigned: false,
             config: None,
             verbose: 0,
             dry_run: false,
