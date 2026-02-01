@@ -13,24 +13,9 @@ When you run a command through nono, it can only access what you explicitly gran
 
 ## Trust Boundaries
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        TRUSTED                              │
-│  - Your operating system kernel                             │
-│  - nono binary (applies sandbox before exec)                │
-│  - Paths you explicitly grant access to                     │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                    Kernel Sandbox Boundary
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                       UNTRUSTED                             │
-│  - The command/agent being executed                         │
-│  - Any child processes it spawns                            │
-│  - Any libraries it loads                                   │
-│  - Any network connections it makes (if allowed)            │
-└─────────────────────────────────────────────────────────────┘
-```
+<Frame>
+  <img src="/assets/layers.png" alt="nono trust boundaries showing kernel sandbox separating trusted and untrusted zones" />
+</Frame>
 
 ## What nono Protects Against
 
