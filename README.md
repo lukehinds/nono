@@ -1,5 +1,6 @@
 # nono
-# Security Swiss Army Knife for AI agents
+
+### A secure, kernel-enforced capability shell for AI agents
 
 <div align="center">
   <!-- <picture>
@@ -32,8 +33,6 @@
   <strong>🚧 Security Notice</strong><br>
   This is an early release that has not undergone comprehensive security auditing or peer review. Although care and attenion has been made and the author has a long background in security, there are no guarantees are made regarding maturity or stability. Not recommended for production environments.
 </div>
-
-## A secure shell for AI agents.
 
 **nono** is a secure, kernel-enforced capability shell for running untrusted AI agents and processes. Unlike policy-based sandboxes that intercept and filter operations, nono leverages OS security primitives (Landlock on Linux, Seatbelt on macOS) to create an environment where unauthorized operations are structurally impossible.
 
