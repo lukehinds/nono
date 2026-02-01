@@ -1,38 +1,29 @@
+<div align="center">
+
 # nono
 
-### A secure, kernel-enforced capability shell for AI agents
+**A secure, kernel-enforced capability shell for AI agents**
 
-<div align="center">
-  <!-- <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/logo-light.png" />
-    <img alt="nono logo" src="./assets/nono-mascot.png" style="width:80%;max-width:80%;height:auto;display:block;margin:0 auto;" />
-  </picture> -->
+<a href="https://discord.gg/pPcjYzGvbS">
+  <img src="https://img.shields.io/badge/Chat-Join%20Discord-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Join Discord"/>
+</a>
 
-  <!-- CTA Buttons -->
-  <p>
-    <a href="https://discord.gg/pPcjYzGvbS">
-      <img src="https://img.shields.io/badge/Chat-Join%20Discord-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Join Discord"/>
-    </a>
-  </p>
+<p>
+  <a href="https://opensource.org/licenses/Apache-2.0">
+    <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/>
+  </a>
+  <a href="https://github.com/lukehinds/nono/actions/workflows/ci.yml">
+    <img src="https://github.com/lukehinds/nono/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
+  </a>
+  <a href="https://discord.gg/pPcjYzGvbS">
+    <img src="https://img.shields.io/discord/1384081906773131274?color=7289da&label=Discord&logo=discord&logoColor=white" alt="Discord"/>
+  </a>
+</p>
 
-  <!-- Badges -->
-  <p>
-    <a href="https://opensource.org/licenses/Apache-2.0">
-      <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/>
-    </a>
-    <a href="https://github.com/lukehinds/nono/actions/workflows/ci.yml">
-      <img src="https://github.com/lukehinds/nono/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
-    </a>
-    <a href="https://discord.gg/pPcjYzGvbS">
-      <img src="https://img.shields.io/discord/1384081906773131274?color=7289da&label=Discord&logo=discord&logoColor=white" alt="Discord"/>
-    </a>
-  </p>
 </div>
 
-<div style="padding: 16px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24; margin: 16px 0;">
-  <strong>🚧 Security Notice</strong><br>
-  This is an early release that has not undergone comprehensive security auditing or peer review. Although care and attenion has been made and the author has a long background in security, there are no guarantees are made regarding maturity or stability. Not recommended for production environments.
-</div>
+> [!WARNING]
+> This is an early release that has not undergone comprehensive security auditing or peer review. Although care and attention has been made and the author has a long background in security, there are no guarantees regarding maturity or stability. Not recommended for production environments.
 
 **nono** is a secure, kernel-enforced capability shell for running untrusted AI agents and processes. Unlike policy-based sandboxes that intercept and filter operations, nono leverages OS security primitives (Landlock on Linux, Seatbelt on macOS) to create an environment where unauthorized operations are structurally impossible.
 
