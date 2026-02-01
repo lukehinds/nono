@@ -140,9 +140,9 @@ jobs:
           sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/nono.rb
           sed -i "s|releases/download/v[^/]*/|releases/download/v${VERSION}/|g" Formula/nono.rb
           # Update ARM64 SHA (first sha256 in on_arm block)
-          sed -i "/on_arm/,/end/{s/sha256 \"[a-f0-9]*\"/sha256 \"${ARM64_SHA}\"/}" Formula/nono.rb
+          sed -i "/on_arm/,/end/{s/sha256 \"[^\"]*\"/sha256 \"${ARM64_SHA}\"/}" Formula/nono.rb
           # Update x64 SHA (sha256 in on_intel block)
-          sed -i "/on_intel/,/end/{s/sha256 \"[a-f0-9]*\"/sha256 \"${X64_SHA}\"/}" Formula/nono.rb
+          sed -i "/on_intel/,/end/{s/sha256 \"[^\"]*\"/sha256 \"${X64_SHA}\"/}" Formula/nono.rb
 
       - name: Commit and push
         run: |
