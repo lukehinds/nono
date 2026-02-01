@@ -12,10 +12,10 @@
     "light": "#07C983",
     "dark": "#0D9373"
   },
-  "font": {
-    "headings": "Space Grotesk",
-    "body": "Inter"
+  "appearance": {
+    "default": "dark"
   },
+
   "navbar": {
     "links": [
       {
@@ -37,7 +37,7 @@
           {
             "group": "Getting Started",
             "pages": [
-              "index",
+              "home",
               "installation"
             ]
           },
@@ -45,7 +45,6 @@
             "group": "Usage",
             "pages": [
               "usage/index",
-              "usage/flags",
               "usage/secrets",
               "usage/examples"
             ]
@@ -60,12 +59,18 @@
             ]
           },
           {
-            "group": "Reference",
+            "group": "Profiles",
             "pages": [
               "profiles/index",
               "profiles/built-in",
               "profiles/openclaw",
               "troubleshooting"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "usage/flags"
             ]
           }
         ]

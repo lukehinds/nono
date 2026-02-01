@@ -5,6 +5,7 @@ description: Learn how to use nono to sandbox commands
 
 nono wraps any command with an OS-level sandbox. You specify what the command is allowed to access, and nono enforces those restrictions at the kernel level.
 
+
 ## Commands
 
 nono provides two main commands:
@@ -13,6 +14,7 @@ nono provides two main commands:
 |---------|-------------|
 | `nono run` | Run a command inside the sandbox |
 | `nono why` | Check why a path would be blocked or allowed |
+| `nono setup` | Sets up profiles (openclaw, claude etc) |
 
 ## Running Commands (`nono run`)
 
@@ -22,8 +24,9 @@ nono provides two main commands:
 nono run [OPTIONS] -- <COMMAND> [ARGS...]
 ```
 
+<Note>
 The `--` separator is recommended. Everything after it is the command to run.
-
+</Note>
 ### Minimal Example
 
 ```bash
@@ -32,8 +35,6 @@ nono run --allow . -- claude
 ```
 
 ## Checking Path Access (`nono why`)
-
-### Basic Syntax
 
 ```bash
 nono why [OPTIONS] <PATH>

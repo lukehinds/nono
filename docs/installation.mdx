@@ -3,9 +3,24 @@ title: Installation
 description: Get nono running on your system
 ---
 
-## From Source (Recommended)
+### Homebrew (macOS)
 
-nono is written in Rust. You'll need the Rust toolchain installed.
+```bash
+brew tap lukehinds/nono 
+brew install nono
+```
+
+<Note>
+  The package is not in homebrew official yet, [give us a star](https://github.com/lukehinds/nono) to help raise our profile for when request approval
+</Note>
+
+### Prebuilt Binaries
+Download the latest release from the [Releases](https://github.com/lukehinds/nono/releases) page.
+
+
+## From Source
+
+nono is written in Rust. You'll need the [Rust toolchain](https://rustup.rs/) installed.
 
 ### Prerequisites
 
@@ -21,22 +36,11 @@ nono is written in Rust. You'll need the Rust toolchain installed.
     ```
   </Tab>
   <Tab title="macOS">
-    - Rust 1.70 or later
     - macOS 10.15 (Catalina) or later
-    - Xcode Command Line Tools
   </Tab>
 </Tabs>
 
 
-### Homebrew (macOS)
-
-```bash
-brew tap lukehinds/nono 
-brew install nono
-```
-
-### Prebuilt Binaries
-Download the latest release from the [Releases](https://github.com/lukehinds/nono/releases) page.
 
 ### Build from Source
 
@@ -64,22 +68,8 @@ echo 'export PATH="$PATH:/path/to/nono/target/release"' >> ~/.zshrc
 ## Cargo Install
 
 ```bash
-cargo install nono
+cargo install nono-rs
 ```
-
-<Note>
-  The crate is not yet published to crates.io. Use the source installation method for now.
-</Note>
-
-## Homebrew (macOS)
-
-```bash
-brew install nono
-```
-
-<Note>
-  The Homebrew formula is not yet available. Use the source installation method for now.
-</Note>
 
 ## Verify Installation
 
@@ -88,7 +78,7 @@ brew install nono
 nono --version
 
 # Test with dry run
-nono run --allow . --dry-run -- echo "Hello from sandbox"
+nono run --allow . --dry-run -- echo "Hello from the sandbox!"
 ```
 
 ## Kernel Requirements (Linux)

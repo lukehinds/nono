@@ -15,36 +15,67 @@ OpenClaw agents receive messages from external users and can execute commands on
 
 nono's kernel-enforced sandbox ensures that even if an agent is compromised, it cannot exceed its granted capabilities.
 
-## Recommended Profile
+<Note>
+nono has already proven capable of stopping some nasty reported CVEs from exploiting live systems, as its protections are impossible to overide
+</Note>
+
+## Built-in Profile
+
+nono includes a built-in `openclaw` profile that you can use immediately without any configuration:
+
+```bash
+nono run --profile openclaw -- openclaw gateway
+```
+
+The built-in profile provides:
+- **Read+write access** to `~/.openclaw` and `~/.config/openclaw` (agent config and state)
+- **Read+write access** to `$TMPDIR/openclaw-$UID` (temporary files)
+- **Network access** enabled (required for messaging APIs)
+
+## Custom Profile
+
+If you need different permissions, you can create a custom profile. Custom profiles are stored in:
+
+```
+~/.config/nono/profiles/<name>.toml
+```
+
+For example, to create a stricter openclaw profile with read-only config access:
+
+```bash
+mkdir -p ~/.config/nono/profiles
+```
+
+Then create `~/.config/nono/profiles/openclaw-strict.toml`:
 
 ```toml
 [meta]
-name = "openclaw"
+name = "openclaw-strict"
 version = "1.0.0"
-description = "OpenClaw messaging gateway and agents"
+description = "OpenClaw with read-only config access"
 
 [filesystem]
 allow = ["$WORKDIR"]
-read = ["$HOME/.openclaw"]
-
-[filesystem.files]
-read = [
-  "$HOME/.gitconfig"
-]
+read = ["$HOME/.openclaw", "$HOME/.config/openclaw"]
 
 [network]
 block = false  # Required for messaging APIs
 
 [secrets]
-# Load API keys from system keystore instead of files
+# Load credentials from system keystore instead of files
+telegram_bot_token = "TELEGRAM_BOT_TOKEN"
 openai_api_key = "OPENAI_API_KEY"
-anthropic_api_key = "ANTHROPIC_API_KEY"
 ```
 
-**Usage:**
+**Usage (custom profiles require `--trust-unsigned`):**
 ```bash
-nono run --profile openclaw -- openclaw
+# Profile includes secrets, so just pass --secrets to enable loading
+nono run --profile openclaw-strict --trust-unsigned --secrets -- openclaw gateway
 ```
+
+<Note>
+Custom profiles override built-in profiles of the same name. If you create `~/.config/nono/profiles/openclaw.toml`, it will be used instead of the built-in.
+</Note>
 
 ## Security Tips
 
@@ -55,31 +86,60 @@ OpenClaw stores sensitive data in `~/.openclaw/` including:
 - OAuth credentials
 - API keys for AI providers
 
-The recommended profile grants **read-only** access to this directory. Agents can read their configuration but cannot modify or exfiltrate credentials to new locations.
+The built-in profile grants **read+write** access to this directory so OpenClaw can update its state. If you need stricter isolation, use a custom profile with read-only access (see the custom profile example above).
 
-For maximum security, use nono's secrets management to load API keys from the system keystore:
+For maximum security, use nono's secrets management to load API keys from the system keystore. This keeps credentials out of config files and environment variable exports where they could be leaked.
 
+**Step 1: Store your secrets**
+
+OpenClaw typically needs a messaging platform token (e.g., Telegram) and an AI provider API key. Store these in the system keystore:
+
+**macOS:**
 ```bash
-# Store secrets in system keystore (once)
-nono secret set openai_api_key
-nono secret set anthropic_api_key
+# Store Telegram bot token
+security add-generic-password -s "nono" -a "telegram_bot_token" -w
 
-# Run with secrets loaded from keystore
-nono run --profile openclaw --secrets -- openclaw
+# Store OpenAI API key
+security add-generic-password -s "nono" -a "openai_api_key" -w
+
+# Or store Anthropic API key instead
+security add-generic-password -s "nono" -a "anthropic_api_key" -w
 ```
 
-This way, credentials never touch the filesystem where an agent could read them.
+**Linux:**
+```bash
+# Store Telegram bot token
+secret-tool store --label="nono: telegram_bot_token" service nono username telegram_bot_token
+
+# Store OpenAI API key
+secret-tool store --label="nono: openai_api_key" service nono username openai_api_key
+```
+
+**Step 2: Run OpenClaw with secrets loaded**
+
+```bash
+# Run the gateway with secrets injected as environment variables
+nono run --profile openclaw --secrets telegram_bot_token,openai_api_key -- openclaw gateway
+```
+
+The secrets are loaded from the keystore and injected as `$TELEGRAM_BOT_TOKEN` and `$OPENAI_API_KEY` environment variables. OpenClaw reads these automatically.
+
+<Note>
+Secrets are loaded **before** the sandbox is applied, then zeroized from nono's memory after `exec()`. The sandboxed process cannot access the keystore directly - it only receives the specific secrets you authorized.
+</Note>
+
+See [Secrets Management](/usage/secrets) for complete documentation on storing and managing secrets.
 
 ### Limit Agent Filesystem Access
 
-By default, the profile grants read+write to the current working directory. For tighter control:
+The built-in profile grants access to OpenClaw's config directories. To also grant access to a project directory:
 
 ```bash
 # Restrict to specific project directory only
-nono run --profile openclaw --allow ~/projects/my-agent -- openclaw
+nono run --profile openclaw --allow ~/projects/my-agent -- openclaw gateway
 
 # Block all writes, read-only mode
-nono run --profile openclaw --read . -- openclaw
+nono run --profile openclaw --read . -- openclaw gateway
 ```
 
 ### Network Considerations
@@ -124,7 +184,7 @@ OpenClaw has its own sandboxing option for group/channel sessions. Layer both fo
 
 ```bash
 # Both layers active
-nono run --profile openclaw -- openclaw --sandbox
+nono run --profile openclaw -- openclaw gateway --sandbox
 ```
 
 ## Strict Mode Example
@@ -136,12 +196,12 @@ nono run \
   --read ~/.openclaw \
   --read ~/agents/my-agent \
   --allow ~/agents/my-agent/workspace \
-  --secrets \
-  -- openclaw
+  --secrets telegram_bot_token,openai_api_key \
+  -- openclaw gateway
 ```
 
 This configuration:
 - Reads config from `~/.openclaw` (no writes)
 - Reads agent code from `~/agents/my-agent`
 - Only allows writes to the workspace subdirectory
-- Loads secrets from keystore instead of files
+- Loads `$TELEGRAM_BOT_TOKEN` and `$OPENAI_API_KEY` from the system keystore
