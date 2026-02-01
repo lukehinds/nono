@@ -85,7 +85,10 @@ pub fn print_applying_sandbox(silent: bool) {
     if silent {
         return;
     }
-    eprintln!("{}", "Applying Kernel sandbox protections.".truecolor(150, 150, 150));
+    eprintln!(
+        "{}",
+        "Applying Kernel sandbox protections.".truecolor(150, 150, 150)
+    );
 }
 
 /// Print success message when sandbox is active
