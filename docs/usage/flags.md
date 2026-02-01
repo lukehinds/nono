@@ -2,87 +2,101 @@
 
 Complete reference for all nono command-line flags.
 
-## Synopsis
+## Commands
+
+### `nono run`
+
+Run a command inside the sandbox.
 
 ```bash
-nono [OPTIONS] -- <COMMAND> [ARGS...]
+nono run [OPTIONS] -- <COMMAND> [ARGS...]
 ```
 
-## Directory Permissions
+### `nono why`
+
+Check why a path would be blocked or allowed.
+
+```bash
+nono why [OPTIONS] <PATH>
+```
+
+## `nono run` Options
+
+### Directory Permissions
 
 These flags grant recursive access to directories and all their contents.
 
-### `--allow`, `-a`
+#### `--allow`, `-a`
 
 Grant read and write access to a directory.
 
 ```bash
-nono --allow ./project -- command
-nono -a ./src -a ./tests -- command
+nono run --allow ./project -- command
+nono run -a ./src -a ./tests -- command
 ```
 
 Can be specified multiple times to allow multiple directories.
 
-### `--read`, `-r`
+#### `--read`, `-r`
 
 Grant read-only access to a directory.
 
 ```bash
-nono --read ./config -- command
-nono -r /etc/myapp -- command
+nono run --read ./config -- command
+nono run -r /etc/myapp -- command
 ```
 
 Useful for source code directories that shouldn't be modified.
 
-### `--write`, `-w`
+#### `--write`, `-w`
 
 Grant write-only access to a directory.
 
 ```bash
-nono --write ./output -- command
-nono -w ./logs -- command
+nono run --write ./output -- command
+nono run -w ./logs -- command
 ```
 
 Useful for output directories where reading existing content isn't needed.
 
-## File Permissions
+### File Permissions
 
 These flags grant access to individual files only (non-recursive).
 
-### `--allow-file`
+#### `--allow-file`
 
 Grant read and write access to a single file.
 
 ```bash
-nono --allow-file ./database.sqlite -- command
+nono run --allow-file ./database.sqlite -- command
 ```
 
-### `--read-file`
+#### `--read-file`
 
 Grant read-only access to a single file.
 
 ```bash
-nono --read-file ./config.toml -- command
-nono --read-file ~/.gitconfig -- command
+nono run --read-file ./config.toml -- command
+nono run --read-file ~/.gitconfig -- command
 ```
 
-### `--write-file`
+#### `--write-file`
 
 Grant write-only access to a single file.
 
 ```bash
-nono --write-file ./output.log -- command
+nono run --write-file ./output.log -- command
 ```
 
-## Network Control
+### Network Control
 
-### `--net-block`
+#### `--net-block`
 
 Block all network access. Network is **allowed by default**.
 
 ```bash
 # Block network for a build process that should be offline
-nono --allow . --net-block -- cargo build
+nono run --allow . --net-block -- cargo build
 ```
 
 !!! note "Binary Control"
@@ -90,14 +104,41 @@ nono --allow . --net-block -- cargo build
 
     Granular network filtering (e.g., allowing only specific domains like `api.anthropic.com`) is a desired feature but not yet supported. Apple Seatbelt has technical limitations that make per-host filtering challenging and would require significant experimentation to implement correctly. This feature may be added in a future release.
 
-## Operational Flags
+### Profile Options
 
-### `--dry-run`
+#### `--profile`, `-p`
+
+Use a named profile (built-in or from `~/.config/nono/profiles/`).
+
+```bash
+nono run --profile claude-code -- claude
+nono run -p openclaw -- openclaw gateway
+```
+
+#### `--workdir`
+
+Working directory for `$WORKDIR` expansion in profiles (defaults to current directory).
+
+```bash
+nono run --profile claude-code --workdir ./my-project -- claude
+```
+
+#### `--trust-unsigned`
+
+Trust unsigned user profiles. Required for profiles without signatures.
+
+```bash
+nono run --profile my-custom-profile --trust-unsigned -- command
+```
+
+### Operational Flags
+
+#### `--dry-run`
 
 Show what capabilities would be granted without actually executing the command or applying the sandbox.
 
 ```bash
-nono --allow . --read /etc --net-allow --dry-run -- my-agent
+nono run --allow . --read /etc --dry-run -- my-agent
 ```
 
 Output:
@@ -110,31 +151,51 @@ Capabilities that would be granted:
 Would execute: my-agent
 ```
 
-### `--verbose`, `-v`
+#### `--verbose`, `-v`
 
 Increase logging verbosity. Can be specified multiple times.
 
 | Flag | Level | Output |
 |------|-------|--------|
 | (none) | Error | Only errors |
-| `-v` | Warn | Warnings and errors |
-| `-vv` | Info | Informational messages |
-| `-vvv` | Debug | Detailed debug output |
+| `-v` | Info | Informational messages |
+| `-vv` | Debug | Detailed debug output |
+| `-vvv` | Trace | Full trace output |
 
 ```bash
-nono -vvv --allow . -- command
+nono run -vvv --allow . -- command
 ```
 
-### `--config`, `-c`
+#### `--config`, `-c`
 
 Specify a configuration file path.
 
 ```bash
-nono --config ./nono.toml -- command
+nono run --config ./nono.toml -- command
 ```
 
 !!! note "Coming Soon"
     Configuration file support is planned for a future release.
+
+## `nono why` Options
+
+### `<PATH>` (required)
+
+The path to check.
+
+```bash
+nono why ~/.ssh/id_rsa
+nono why ./my-project
+```
+
+### `--suggest`, `-s`
+
+Show what flags would grant access to this path.
+
+```bash
+nono why -s ~/.aws
+# Output includes suggested nono run flags
+```
 
 ## Exit Codes
 
@@ -156,8 +217,8 @@ This prevents symlink escape attacks where a malicious agent creates a symlink p
 
 ```bash
 # These are equivalent if ./project resolves to /home/user/project
-nono --allow ./project -- command
-nono --allow /home/user/project -- command
+nono run --allow ./project -- command
+nono run --allow /home/user/project -- command
 ```
 
 ## Combining Flags
@@ -165,12 +226,11 @@ nono --allow /home/user/project -- command
 Flags can be combined freely:
 
 ```bash
-nono \
+nono run \
   --allow ./project \
   --read ~/.config/myapp \
   --write ./logs \
   --read-file ~/.gitconfig \
-  --net-allow \
   -vv \
   -- my-agent --arg1 --arg2
 ```

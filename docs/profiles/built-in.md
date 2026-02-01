@@ -31,7 +31,7 @@ block = false  # Network allowed (required for API calls)
 
 **Usage:**
 ```bash
-nono --profile claude-code -- claude
+nono run --profile claude-code -- claude
 ```
 
 **Grants:**
@@ -63,7 +63,7 @@ block = false  # Network allowed
 
 **Usage:**
 ```bash
-nono --profile opencode -- opencode
+nono run --profile opencode -- opencode
 ```
 
 **Grants:**
@@ -94,7 +94,7 @@ block = false  # Network allowed
 
 **Usage:**
 ```bash
-nono --profile openclaw -- openclaw
+nono run --profile openclaw -- openclaw
 ```
 
 **Grants:**
@@ -124,10 +124,10 @@ CLI flags always take precedence over profile settings:
 
 ```bash
 # Use claude-code profile but block network
-nono --profile claude-code --net-block -- claude
+nono run --profile claude-code --net-block -- claude
 
 # Add extra directory access
-nono --profile claude-code --allow ~/other-project -- claude
+nono run --profile claude-code --allow ~/other-project -- claude
 ```
 
 You can also create a user profile with the same name to override a built-in profile entirely.

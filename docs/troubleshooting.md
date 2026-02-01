@@ -12,18 +12,18 @@ Command fails with "Permission denied" or "Operation not permitted" errors.
 
 1. **Check what access was granted**:
    ```bash
-   nono --allow . --dry-run -- command
+   nono run --allow . --dry-run -- command
    ```
 
 2. **Check environment variables inside the sandbox**:
    ```bash
-   nono --allow . -- sh -c 'echo "Allowed: $NONO_ALLOWED"'
-   nono --allow . -- sh -c 'echo "Blocked: $NONO_BLOCKED"'
+   nono run --allow . -- sh -c 'echo "Allowed: $NONO_ALLOWED"'
+   nono run --allow . -- sh -c 'echo "Blocked: $NONO_BLOCKED"'
    ```
 
 3. **Run with verbose logging**:
    ```bash
-   nono -vvv --allow . -- command
+   nono run -vvv --allow . -- command
    ```
 
 ### Common Causes
@@ -68,12 +68,12 @@ Commands like `curl`, `wget`, or API calls fail with connection errors.
 1. **If you used `--net-block`, remove it**:
    ```bash
    # Network is allowed by default
-   nono --allow . -- curl https://example.com
+   nono run --allow . -- curl https://example.com
    ```
 
 2. **Check if you're actually in nono sandbox**:
    ```bash
-   nono --allow . -- sh -c 'echo $NONO_NET'
+   nono run --allow . -- sh -c 'echo $NONO_NET'
    # Should print "allowed" (default)
    ```
 
@@ -110,10 +110,10 @@ error: No such file or directory: my-command
 2. **Target command not in PATH**:
    ```bash
    # Use absolute path
-   nono --allow . -- /usr/local/bin/my-command
+   nono run --allow . -- /usr/local/bin/my-command
 
    # Or ensure PATH is set correctly
-   nono --allow . -- sh -c 'which my-command'
+   nono run --allow . -- sh -c 'which my-command'
    ```
 
 ---
@@ -178,7 +178,7 @@ This is intentional to prevent symlink escape attacks.
 $ pwd
 /home/user/project
 
-$ nono --allow . --dry-run -- command
+$ nono run --allow . --dry-run -- command
 Capabilities:
   [rw] /home/user/project    # Resolved from "."
 ```
@@ -197,14 +197,14 @@ Child processes always inherit sandbox restrictions. If you're seeing this:
 
 1. **Verify the parent is sandboxed**:
    ```bash
-   nono --allow . -- sh -c 'echo $NONO_ACTIVE'
+   nono run --allow . -- sh -c 'echo $NONO_ACTIVE'
    # Should print "1"
    ```
 
 2. **Check if you're testing correctly**:
    ```bash
    # Parent and child are BOTH sandboxed
-   nono --allow . -- sh -c 'sh -c "cat /etc/passwd"'
+   nono run --allow . -- sh -c 'sh -c "cat /etc/passwd"'
    # Should fail if /etc is not allowed
    ```
 
@@ -238,19 +238,19 @@ When running inside nono, these variables are set:
 
 ```bash
 # Check if running under nono
-nono --allow . -- sh -c 'echo $NONO_ACTIVE'
+nono run --allow . -- sh -c 'echo $NONO_ACTIVE'
 
 # See what paths are allowed
-nono --allow . -- sh -c 'echo $NONO_ALLOWED'
+nono run --allow . -- sh -c 'echo $NONO_ALLOWED'
 
 # See what paths are blocked (sensitive)
-nono --allow . -- sh -c 'echo $NONO_BLOCKED'
+nono run --allow . -- sh -c 'echo $NONO_BLOCKED'
 
 # Check network status
-nono --allow . -- sh -c 'echo $NONO_NET'
+nono run --allow . -- sh -c 'echo $NONO_NET'
 
 # Get help text for requesting more access
-nono --allow . -- sh -c 'echo $NONO_HELP'
+nono run --allow . -- sh -c 'echo $NONO_HELP'
 ```
 
 ---
@@ -262,7 +262,7 @@ nono --allow . -- sh -c 'echo $NONO_HELP'
 This usually means the Seatbelt profile was malformed. Run with `-vvv` to see the generated profile:
 
 ```bash
-nono -vvv --allow . -- command
+nono run -vvv --allow . -- command
 ```
 
 ### Linux: "Landlock not supported"
@@ -300,4 +300,4 @@ If you're still stuck:
    - OS and kernel version
    - Full command that failed
    - Error message
-   - Output of `nono --dry-run` with same flags
+   - Output of `nono run --dry-run` with same flags

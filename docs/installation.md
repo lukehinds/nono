@@ -71,7 +71,7 @@ brew install nono
 nono --version
 
 # Test with dry run
-nono --allow . --dry-run -- echo "Hello from sandbox"
+nono run --allow . --dry-run -- echo "Hello from sandbox"
 ```
 
 ## Kernel Requirements (Linux)

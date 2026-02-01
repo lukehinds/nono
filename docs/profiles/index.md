@@ -11,14 +11,14 @@ Manually specifying capabilities for every tool is tedious and error-prone:
 
 ```bash
 # Without profiles - verbose and easy to misconfigure
-nono --allow . --read ~/.claude --read-file ~/.claude/config.json -- claude
+nono run --allow . --read ~/.claude --read-file ~/.claude/config.json -- claude
 ```
 
 Profiles simplify this:
 
 ```bash
 # With profiles - concise and auditable
-nono --profile claude-code -- claude
+nono run --profile claude-code -- claude
 ```
 
 ## Profile Sources
@@ -71,13 +71,13 @@ Profiles support these environment variables:
 
 ```bash
 # Use a built-in profile
-nono --profile claude-code -- claude
+nono run --profile claude-code -- claude
 
 # Use with additional flags (flags take precedence)
-nono --profile claude-code --allow ./extra-dir -- claude
+nono run --profile claude-code --allow ./extra-dir -- claude
 
 # List available profiles
-nono --list-profiles
+nono run --list-profiles
 ```
 
 ## Creating User Profiles
@@ -104,7 +104,7 @@ nono --list-profiles
 
 3. Use the profile:
    ```bash
-   nono --profile my-agent -- my-agent-command
+   nono run --profile my-agent -- my-agent-command
    ```
 
 ## Profile Verification

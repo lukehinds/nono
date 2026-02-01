@@ -2,20 +2,57 @@
 
 nono wraps any command with an OS-level sandbox. You specify what the command is allowed to access, and nono enforces those restrictions at the kernel level.
 
-## Basic Syntax
+## Commands
+
+nono provides two main commands:
+
+| Command | Description |
+|---------|-------------|
+| `nono run` | Run a command inside the sandbox |
+| `nono why` | Check why a path would be blocked or allowed |
+
+## Running Commands (`nono run`)
+
+### Basic Syntax
 
 ```bash
-nono [OPTIONS] -- <COMMAND> [ARGS...]
+nono run [OPTIONS] -- <COMMAND> [ARGS...]
 ```
 
-The `--` separator is required. Everything after it is the command to run.
+The `--` separator is recommended. Everything after it is the command to run.
 
-## Minimal Example
+### Minimal Example
 
 ```bash
 # Grant read+write access to current directory, run claude
-nono --allow . -- claude
+nono run --allow . -- claude
 ```
+
+## Checking Path Access (`nono why`)
+
+### Basic Syntax
+
+```bash
+nono why [OPTIONS] <PATH>
+```
+
+### Examples
+
+```bash
+# Check if a sensitive path would be blocked
+nono why ~/.ssh/id_rsa
+# Output: BLOCKED: ~/.ssh/id_rsa is a sensitive path
+
+# Check with suggestions for granting access
+nono why -s ./my-project
+# Output includes: nono run --allow ./my-project -- <command>
+```
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `-s`, `--suggest` | Show flags needed to grant access |
 
 ## Understanding Permissions
 
@@ -34,10 +71,10 @@ nono provides three levels of filesystem access:
 
 ```bash
 # Recursive access to entire directory
-nono --allow ./project -- command
+nono run --allow ./project -- command
 
 # Access to single config file only
-nono --read-file ./config.toml -- command
+nono run --read-file ./config.toml -- command
 ```
 
 ## Network Access
@@ -46,7 +83,7 @@ Network is **allowed by default**. Use `--net-block` to disable outbound connect
 
 ```bash
 # Block network access for offline build
-nono --allow . --net-block -- cargo build
+nono run --allow . --net-block -- cargo build
 ```
 
 !!! note "Binary Control"
@@ -73,8 +110,22 @@ When running inside nono, these environment variables are set:
 | `NONO_NET` | `allowed` or `blocked` |
 | `NONO_BLOCKED` | Colon-separated list of blocked sensitive paths |
 | `NONO_HELP` | Help text for requesting additional access |
+| `NONO_CONTEXT` | Full explanation of sandbox state for AI agents |
 
-These help sandboxed applications provide better error messages.
+These help sandboxed applications (especially AI agents) provide better error messages when access is denied.
+
+## Sensitive Paths
+
+The following paths are always blocked by default to protect credentials:
+
+- `~/.ssh` - SSH keys
+- `~/.aws`, `~/.gcloud`, `~/.azure` - Cloud credentials
+- `~/.gnupg` - GPG keys
+- `~/.kube`, `~/.docker` - Container credentials
+- `~/.zshrc`, `~/.bashrc`, `~/.profile` - Shell configs (often contain secrets)
+- `~/.npmrc`, `~/.git-credentials` - Package manager tokens
+
+Use `nono why <path>` to check if a specific path is blocked and why.
 
 ## Next Steps
 

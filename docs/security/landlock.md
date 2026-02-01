@@ -105,7 +105,7 @@ nono reports the enforcement status after applying the sandbox:
 Use `-v` to see the enforcement status:
 
 ```bash
-nono -v --allow . -- command
+nono run -v --allow . -- command
 # Output includes: Sandbox status: FullyEnforced
 ```
 
@@ -148,12 +148,12 @@ If a command fails with permission errors:
 
 1. **Run with dry-run**: See what capabilities would be granted
    ```bash
-   nono --allow . --dry-run -- command
+   nono run --allow . --dry-run -- command
    ```
 
 2. **Check verbose output**:
    ```bash
-   nono -vvv --allow . -- command
+   nono run -vvv --allow . -- command
    ```
 
 3. **Check dmesg for Landlock denials**:
@@ -163,7 +163,7 @@ If a command fails with permission errors:
 
 4. **Use strace**: See which syscalls are being denied
    ```bash
-   strace -f nono --allow . -- command 2>&1 | grep EACCES
+   strace -f nono run --allow . -- command 2>&1 | grep EACCES
    ```
 
 ## Limitations
