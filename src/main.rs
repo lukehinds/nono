@@ -108,31 +108,37 @@ const SENSITIVE_PATHS: &[&str] = &[
 
 /// Check if a command is in the dangerous commands list
 /// Returns the matched command name if blocked, None if allowed
+///
+/// Uses OsStr for all comparisons to prevent bypass via non-UTF8 paths.
+/// If a path contains non-UTF8 characters, we still correctly extract
+/// and compare the binary name.
 fn is_blocked_command(
     cmd: &str,
     allowed_commands: &[String],
     extra_blocked: &[String],
 ) -> Option<String> {
+    use std::ffi::OsStr;
+
     // Extract just the binary name (handle paths like /bin/rm)
-    let binary = Path::new(cmd)
+    // Use OsStr to handle non-UTF8 paths safely
+    let binary_os = Path::new(cmd)
         .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(cmd);
+        .unwrap_or_else(|| OsStr::new(cmd));
 
     // Check if explicitly allowed (overrides default blocklist)
-    if allowed_commands.iter().any(|a| a == binary) {
+    if allowed_commands.iter().any(|a| OsStr::new(a) == binary_os) {
         return None;
     }
 
     // Check extra blocked commands first
-    if extra_blocked.iter().any(|b| b == binary) {
-        return Some(binary.to_string());
+    if extra_blocked.iter().any(|b| OsStr::new(b) == binary_os) {
+        return Some(binary_os.to_string_lossy().into_owned());
     }
 
     // Check default dangerous commands list
     DANGEROUS_COMMANDS
         .iter()
-        .find(|&&blocked| blocked == binary)
+        .find(|&&blocked| OsStr::new(blocked) == binary_os)
         .map(|&s| s.to_string())
 }
 
@@ -518,5 +524,25 @@ mod tests {
 
         // Default blocked still works
         assert!(is_blocked_command("rm", &[], &extra).is_some());
+    }
+
+    #[test]
+    fn test_is_blocked_command_no_file_name() {
+        // Edge case: path with no file name (e.g., just "/")
+        // Should fall back to using the full path and not crash
+        assert!(is_blocked_command("/", &[], &[]).is_none());
+        assert!(is_blocked_command("", &[], &[]).is_none());
+    }
+
+    #[test]
+    fn test_is_blocked_command_osstr_comparison() {
+        // Verify OsStr comparison works correctly for various path formats
+        assert!(is_blocked_command("rm", &[], &[]).is_some());
+        assert!(is_blocked_command("./rm", &[], &[]).is_some());
+        assert!(is_blocked_command("../rm", &[], &[]).is_some());
+        assert!(is_blocked_command("/usr/local/bin/rm", &[], &[]).is_some());
+
+        // Nested paths should still extract correct binary name
+        assert!(is_blocked_command("/some/deeply/nested/path/to/rm", &[], &[]).is_some());
     }
 }
