@@ -73,7 +73,7 @@ fn generate_profile(caps: &CapabilitySet) -> String {
     profile.push_str("(allow process*)\n");
 
     // Allow specific system operations (narrowed from blanket system*)
-    profile.push_str("(allow sysctl*)\n");
+    profile.push_str("(allow sysctl-read)\n");
     profile.push_str("(allow mach*)\n");
     profile.push_str("(allow ipc*)\n");
     profile.push_str("(allow signal)\n");
@@ -156,9 +156,11 @@ fn generate_profile(caps: &CapabilitySet) -> String {
         let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
 
         // Check if user explicitly granted access to this sensitive path
+        // Only skip denial if sensitive path is under a granted path (not vice versa)
+        // This prevents granting ~/Library/Caches from disabling protection for ~/Library
         let user_granted = caps.fs.iter().any(|cap| {
             let cap_path = cap.resolved.display().to_string();
-            path.starts_with(&cap_path) || cap_path.starts_with(&path)
+            path.starts_with(&cap_path)
         });
 
         if !user_granted {
@@ -202,7 +204,14 @@ fn generate_profile(caps: &CapabilitySet) -> String {
         ));
     }
 
-    // 5. Add user-specified filesystem capabilities for writes
+    // 5. Block destructive file operations globally (BEFORE user-granted allows)
+    // In Seatbelt, specific allows override broader denies when the allow comes later.
+    // By placing the global deny first, user-granted paths can still allow deletion.
+    // This prevents rm -rf style attacks while allowing intentional file management.
+    profile.push_str("(deny file-write-unlink)\n");
+
+    // 6. Add user-specified filesystem capabilities for writes
+    // These specific allows override the global deny above for user-granted paths
     for cap in &caps.fs {
         let path = cap.resolved.display().to_string();
         let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
@@ -224,14 +233,6 @@ fn generate_profile(caps: &CapabilitySet) -> String {
             }
         }
     }
-
-    // Block destructive file operations globally
-    // These deny rules prevent file deletion and truncation as defense-in-depth
-    // against destructive commands like `rm -rf` or accidental data loss.
-    // Note: These use file-write-unlink for file deletion.
-    // Seatbelt doesn't have separate truncate operation, but file-write-mode
-    // controls the ability to modify file contents (including truncation via open with O_TRUNC).
-    profile.push_str("(deny file-write-unlink)\n");
 
     // Network rules
     // Note: macOS Seatbelt supports some filtering (tcp/udp, local/remote, ports)
