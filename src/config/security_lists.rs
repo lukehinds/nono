@@ -49,6 +49,10 @@ pub struct SensitivePaths {
     #[serde(default)]
     pub onepassword: Vec<String>,
     #[serde(default)]
+    pub macos_private: Vec<String>,
+    #[serde(default)]
+    pub browser_data: Vec<String>,
+    #[serde(default)]
     pub credential_files: Vec<String>,
     #[serde(default)]
     pub secrets_dirs: Vec<String>,
@@ -123,6 +127,18 @@ pub struct MacosSystemPaths {
     #[serde(default)]
     pub frameworks: Vec<String>,
     #[serde(default)]
+    pub dyld: Vec<String>,
+    #[serde(default)]
+    pub ssl: Vec<String>,
+    #[serde(default)]
+    pub locale: Vec<String>,
+    #[serde(default)]
+    pub terminfo: Vec<String>,
+    #[serde(default)]
+    pub system: Vec<String>,
+    #[serde(default)]
+    pub user_library: Vec<String>,
+    #[serde(default)]
     pub writable: Vec<String>,
 }
 
@@ -141,6 +157,8 @@ impl SecurityLists {
         paths.extend(self.sensitive_paths.keychain.iter().cloned());
         paths.extend(self.sensitive_paths.password_store.iter().cloned());
         paths.extend(self.sensitive_paths.onepassword.iter().cloned());
+        paths.extend(self.sensitive_paths.macos_private.iter().cloned());
+        paths.extend(self.sensitive_paths.browser_data.iter().cloned());
         paths.extend(self.sensitive_paths.credential_files.iter().cloned());
         paths.extend(self.sensitive_paths.secrets_dirs.iter().cloned());
         paths.extend(self.sensitive_paths.shell_configs.iter().cloned());
@@ -187,6 +205,12 @@ impl SecurityLists {
             paths.extend(self.system_read_paths.macos.executables.iter().cloned());
             paths.extend(self.system_read_paths.macos.devices.iter().cloned());
             paths.extend(self.system_read_paths.macos.frameworks.iter().cloned());
+            paths.extend(self.system_read_paths.macos.dyld.iter().cloned());
+            paths.extend(self.system_read_paths.macos.ssl.iter().cloned());
+            paths.extend(self.system_read_paths.macos.locale.iter().cloned());
+            paths.extend(self.system_read_paths.macos.terminfo.iter().cloned());
+            paths.extend(self.system_read_paths.macos.system.iter().cloned());
+            paths.extend(self.system_read_paths.macos.user_library.iter().cloned());
         }
 
         paths
@@ -213,6 +237,8 @@ pub fn sensitive_paths_by_category(lists: &SecurityLists) -> HashMap<&'static st
     categories.insert("macOS Keychain", &lists.sensitive_paths.keychain);
     categories.insert("Password managers", &lists.sensitive_paths.password_store);
     categories.insert("1Password", &lists.sensitive_paths.onepassword);
+    categories.insert("macOS private data", &lists.sensitive_paths.macos_private);
+    categories.insert("Browser data", &lists.sensitive_paths.browser_data);
     categories.insert("Credential files", &lists.sensitive_paths.credential_files);
     categories.insert("Secrets directories", &lists.sensitive_paths.secrets_dirs);
     categories.insert("Shell configurations", &lists.sensitive_paths.shell_configs);
@@ -242,6 +268,8 @@ mod tests {
                 keychain: vec![],
                 password_store: vec![],
                 onepassword: vec![],
+                macos_private: vec![],
+                browser_data: vec![],
                 credential_files: vec![],
                 secrets_dirs: vec![],
                 shell_configs: vec!["~/.bashrc".to_string()],
