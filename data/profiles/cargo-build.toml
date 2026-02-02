@@ -1,0 +1,30 @@
+# Rust cargo build (no network)
+#
+# Signed by nono-project. Signature verification required.
+
+[meta]
+name = "cargo-build"
+version = "1.0.0"
+description = "Rust cargo build (no network)"
+author = "nono-project"
+min_nono_version = "0.2.0"
+
+[filesystem]
+allow = ["$WORKDIR"]
+read = ["$HOME/.cargo", "$HOME/.rustup"]
+write = []
+
+[filesystem.files]
+allow = []
+read = []
+write = []
+
+[network]
+# Network blocked for offline builds
+block = true
+
+[commands]
+allow = []
+block = []
+
+[secrets]

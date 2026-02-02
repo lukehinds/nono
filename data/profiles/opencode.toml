@@ -1,0 +1,29 @@
+# OpenCode AI coding assistant
+#
+# Signed by nono-project. Signature verification required.
+
+[meta]
+name = "opencode"
+version = "1.0.0"
+description = "OpenCode AI coding assistant"
+author = "nono-project"
+min_nono_version = "0.2.0"
+
+[filesystem]
+allow = ["$WORKDIR"]
+read = ["$HOME/.opencode"]
+write = []
+
+[filesystem.files]
+allow = []
+read = []
+write = []
+
+[network]
+block = false
+
+[commands]
+allow = []
+block = []
+
+[secrets]

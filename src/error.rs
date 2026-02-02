@@ -68,6 +68,34 @@ pub enum NonoError {
 
     #[error("Command '{command}' is blocked: {reason}")]
     BlockedCommand { command: String, reason: String },
+
+    // Config errors
+    #[error("Failed to read config {path}: {source}")]
+    ConfigRead {
+        path: std::path::PathBuf,
+        source: std::io::Error,
+    },
+
+    #[allow(dead_code)]
+    #[error("Failed to write config {path}: {source}")]
+    ConfigWrite {
+        path: std::path::PathBuf,
+        source: std::io::Error,
+    },
+
+    #[error("Config parse error: {0}")]
+    ConfigParse(String),
+
+    #[error("Signature verification failed: {reason}")]
+    SignatureInvalid { reason: String },
+
+    #[allow(dead_code)]
+    #[error("Config version downgrade detected for '{config}': current={current}, attempted={attempted}")]
+    VersionDowngrade {
+        config: String,
+        current: u64,
+        attempted: u64,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, NonoError>;

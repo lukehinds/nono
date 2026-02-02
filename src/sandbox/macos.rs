@@ -1,4 +1,5 @@
 use crate::capability::{CapabilitySet, FsAccess};
+use crate::config;
 use crate::error::{NonoError, Result};
 use std::ffi::CString;
 use std::os::raw::c_char;
@@ -33,71 +34,16 @@ pub fn support_info() -> String {
 }
 
 /// Get list of sensitive paths that should be denied read access
+/// Now loaded from the embedded security-lists.toml via the config module
 fn get_sensitive_paths() -> Vec<String> {
-    let mut paths = vec![
-        // SSH keys and config
-        "~/.ssh".to_string(),
-        // AWS credentials
-        "~/.aws".to_string(),
-        // GnuPG keys
-        "~/.gnupg".to_string(),
-        // Generic credentials directories
-        "~/.credentials".to_string(),
-        "~/.secrets".to_string(),
-        // Cloud provider configs
-        "~/.azure".to_string(),
-        "~/.gcloud".to_string(),
-        "~/.config/gcloud".to_string(),
-        // Kubernetes configs
-        "~/.kube".to_string(),
-        // Docker configs (may contain registry credentials)
-        "~/.docker".to_string(),
-        // NPM tokens
-        "~/.npmrc".to_string(),
-        // Git credentials
-        "~/.git-credentials".to_string(),
-        // Netrc (FTP/HTTP credentials)
-        "~/.netrc".to_string(),
-        // Password managers
-        "~/.password-store".to_string(),
-        "~/.1password".to_string(),
-        // Private keys directory
-        "~/.keys".to_string(),
-        "~/.pki".to_string(),
-        // Terraform state (may contain secrets)
-        "~/.terraform.d".to_string(),
-        // Vault tokens
-        "~/.vault-token".to_string(),
-        // macOS Keychain (extra protection layer)
-        "~/Library/Keychains".to_string(),
-        // Shell configuration files (often contain API keys, tokens, secrets)
-        "~/.zshrc".to_string(),
-        "~/.zprofile".to_string(),
-        "~/.zshenv".to_string(),
-        "~/.zlogin".to_string(),
-        "~/.zlogout".to_string(),
-        "~/.bashrc".to_string(),
-        "~/.bash_profile".to_string(),
-        "~/.bash_login".to_string(),
-        "~/.bash_logout".to_string(),
-        "~/.profile".to_string(),
-        // Shell history files (may contain sensitive commands)
-        "~/.zsh_history".to_string(),
-        "~/.bash_history".to_string(),
-        "~/.history".to_string(),
-        // Fish shell
-        "~/.config/fish".to_string(),
-        // Environment files
-        "~/.env".to_string(),
-        "~/.envrc".to_string(),
-    ];
+    let paths = config::get_sensitive_paths();
 
     // Expand ~ to actual home directory
     if let Ok(home) = std::env::var("HOME") {
-        paths = paths.into_iter().map(|p| p.replace("~", &home)).collect();
+        paths.into_iter().map(|p| p.replace("~", &home)).collect()
+    } else {
+        paths
     }
-
-    paths
 }
 
 /// Generate a Seatbelt profile from capabilities
@@ -370,13 +316,18 @@ mod tests {
     fn test_get_sensitive_paths() {
         let paths = get_sensitive_paths();
 
-        // Should have multiple sensitive paths (credentials, shell configs, etc.)
-        assert!(paths.len() > 25);
+        // Should have multiple sensitive paths from embedded config
+        assert!(!paths.is_empty(), "Should have sensitive paths");
 
         // Paths should be expanded (not contain ~)
         for path in &paths {
             assert!(!path.contains('~'), "Path should be expanded: {}", path);
         }
+
+        // Should contain key sensitive paths
+        let paths_str = paths.join(" ");
+        assert!(paths_str.contains("ssh"), "Should contain ssh path");
+        assert!(paths_str.contains("aws"), "Should contain aws path");
     }
 
     #[test]

@@ -53,6 +53,8 @@
             "group": "Security",
             "pages": [
               "security/index",
+              "security/signing",
+              "security/vs-containers",
               "security/landlock",
               "security/seatbelt",
               "security/vs-application"

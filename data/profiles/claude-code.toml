@@ -1,0 +1,34 @@
+# Anthropic Claude Code CLI agent
+#
+# Signed by nono-project. Signature verification required.
+
+[meta]
+name = "claude-code"
+version = "1.0.0"
+description = "Anthropic Claude Code CLI agent"
+author = "nono-project"
+min_nono_version = "0.2.0"
+
+[filesystem]
+# WORKDIR: where the agent works on code
+# ~/.claude: agent state, debug logs, projects, etc.
+allow = ["$WORKDIR", "$HOME/.claude"]
+read = ["$HOME/.config/claude-code"]
+write = []
+
+[filesystem.files]
+# ~/.claude.json: agent writes settings/state here
+allow = ["$HOME/.claude.json"]
+read = []
+write = []
+
+[network]
+block = false
+
+[commands]
+allow = []
+block = []
+
+[secrets]
+# Map keystore account names to environment variables
+# anthropic_api_key = "ANTHROPIC_API_KEY"

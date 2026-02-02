@@ -1,4 +1,5 @@
 use crate::capability::{CapabilitySet, FsAccess};
+use crate::config;
 use crate::error::{NonoError, Result};
 use landlock::{
     Access, AccessFs, AccessNet, BitFlags, PathBeneath, PathFd, Ruleset, RulesetAttr,
@@ -9,69 +10,6 @@ use tracing::{debug, info, warn};
 
 /// The target ABI version we support (highest we know about)
 const TARGET_ABI: ABI = ABI::V5;
-
-/// System paths that need read+execute access for executables to run
-const SYSTEM_READ_PATHS: &[&str] = &[
-    // Executables
-    "/bin",
-    "/usr/bin",
-    "/usr/local/bin",
-    "/sbin",
-    "/usr/sbin",
-    // Shared libraries
-    "/lib",
-    "/lib64",
-    "/usr/lib",
-    "/usr/lib64",
-    "/usr/local/lib",
-    "/usr/local/lib64",
-    // Dynamic linker configuration
-    "/etc/ld.so.cache",
-    "/etc/ld.so.conf",
-    "/etc/ld.so.conf.d",
-    // System configuration commonly needed by programs
-    "/etc/passwd",
-    "/etc/group",
-    "/etc/nsswitch.conf",
-    "/etc/resolv.conf",
-    "/etc/hosts",
-    "/etc/hostname",
-    "/etc/machine-id",
-    // Locale and timezone data
-    "/usr/share/locale",
-    "/usr/share/zoneinfo",
-    "/etc/localtime",
-    "/etc/timezone",
-    // SSL certificates
-    "/etc/ssl",
-    "/etc/pki",
-    "/usr/share/ca-certificates",
-    // Terminfo for terminal apps
-    "/usr/share/terminfo",
-    "/lib/terminfo",
-    "/etc/terminfo",
-    // Device files - only safe, commonly needed devices
-    // (NOT /dev as a whole, which would expose /dev/sda, /dev/mem, etc.)
-    "/dev/null",
-    "/dev/zero",
-    "/dev/random",
-    "/dev/urandom",
-    "/dev/full",
-    "/dev/tty",
-    "/dev/console",
-    "/dev/stdin",
-    "/dev/stdout",
-    "/dev/stderr",
-    "/dev/fd",
-    "/dev/pts",
-    // Proc filesystem (needed for many operations)
-    "/proc",
-    // Sys filesystem (some tools need it)
-    "/sys",
-    // Run directory (for runtime data)
-    "/run",
-    "/var/run",
-];
 
 /// Check if Landlock is supported on this system
 pub fn is_supported() -> bool {
@@ -161,8 +99,10 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
         .map_err(|e| NonoError::SandboxInit(format!("Failed to create ruleset: {}", e)))?;
 
     // Add read+execute access to system paths needed for executables to run
+    // These paths are loaded from the embedded security-lists.toml
     let read_access = access_to_landlock(FsAccess::Read, TARGET_ABI);
-    for path_str in SYSTEM_READ_PATHS {
+    let system_paths = config::get_system_read_paths();
+    for path_str in &system_paths {
         let path = Path::new(path_str);
         if path.exists() {
             match PathFd::new(path) {

@@ -12,7 +12,7 @@ documentation = "https://docs.rs/nono-rs"
 readme = "README.md"
 keywords = ["sandbox", "security", "capability", "agent", "landlock"]
 categories = ["command-line-utilities", "development-tools"]
-include = ["src/**/*", "Cargo.toml", "LICENSE", "README.md", "CHANGELOG.md"]
+include = ["src/**/*", "data/**/*", "build.rs", "Cargo.toml", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
 # CLI
@@ -30,6 +30,15 @@ anyhow = "1"
 
 # Secure credential handling
 zeroize = { version = "1", features = ["alloc"] }
+
+# Signature verification
+minisign-verify = "0.2"
+
+# Date/time for version tracking
+chrono = { version = "0.4", features = ["serde"] }
+
+# JSON for version state file
+serde_json = "1"
 
 # Logging
 tracing = "0.1"

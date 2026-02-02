@@ -1,0 +1,33 @@
+# OpenClaw messaging gateway
+#
+# Signed by nono-project. Signature verification required.
+
+[meta]
+name = "openclaw"
+version = "1.0.0"
+description = "OpenClaw messaging gateway"
+author = "nono-project"
+min_nono_version = "0.2.0"
+
+[filesystem]
+allow = [
+    "$HOME/.openclaw",
+    "$HOME/.config/openclaw",
+    "$TMPDIR/openclaw-$UID",
+]
+read = []
+write = []
+
+[filesystem.files]
+allow = []
+read = []
+write = []
+
+[network]
+block = false
+
+[commands]
+allow = []
+block = []
+
+[secrets]

@@ -1,0 +1,207 @@
+# nono Security Lists
+#
+# This file contains the security-critical blocklists for nono sandbox.
+# It is embedded in the binary at compile time and verified via minisign signature.
+#
+# DO NOT EDIT without updating the signature!
+
+[meta]
+version = 1
+schema_version = "1.0"
+# updated field set during signing
+
+[sensitive_paths]
+# Credentials and secrets
+ssh = ["~/.ssh"]
+aws = ["~/.aws"]
+gcp = ["~/.gcloud", "~/.config/gcloud"]
+azure = ["~/.azure"]
+kubernetes = ["~/.kube"]
+docker = ["~/.docker"]
+gnupg = ["~/.gnupg"]
+
+# Password managers and keystores
+keychain = ["~/Library/Keychains"]
+password_store = ["~/.password-store"]
+onepassword = ["~/.1password"]
+
+# Credential files
+credential_files = [
+    "~/.git-credentials",
+    "~/.netrc",
+    "~/.npmrc",
+    "~/.vault-token",
+]
+
+# Directories that may contain secrets
+secrets_dirs = [
+    "~/.credentials",
+    "~/.secrets",
+    "~/.keys",
+    "~/.pki",
+    "~/.terraform.d",
+]
+
+# Shell configurations (often embed secrets/tokens)
+shell_configs = [
+    # Zsh
+    "~/.zshrc",
+    "~/.zprofile",
+    "~/.zshenv",
+    "~/.zlogin",
+    "~/.zlogout",
+    # Bash
+    "~/.bashrc",
+    "~/.bash_profile",
+    "~/.bash_login",
+    "~/.bash_logout",
+    "~/.profile",
+    # Fish
+    "~/.config/fish",
+    # Environment files
+    "~/.env",
+    "~/.envrc",
+]
+
+# Command history (may contain sensitive commands)
+history_files = [
+    "~/.bash_history",
+    "~/.zsh_history",
+    "~/.history",
+]
+
+[dangerous_commands]
+# Commands blocked by default due to destructive potential
+file_destruction = ["rm", "rmdir", "shred", "srm"]
+disk_destruction = [
+    "dd",
+    "mkfs",
+    "mkfs.ext4",
+    "mkfs.xfs",
+    "mkfs.btrfs",
+    "mkswap",
+    "fdisk",
+    "parted",
+    "gdisk",
+    "wipefs",
+]
+permission_chaos = ["chmod", "chown", "chgrp", "chattr"]
+system_modification = ["init", "shutdown", "reboot", "halt", "poweroff", "systemctl"]
+package_managers = ["apt", "apt-get", "dpkg", "yum", "dnf", "pacman", "brew", "pip"]
+dangerous_file_ops = ["mv", "cp", "truncate"]
+network_exfiltration = ["scp", "rsync", "sftp", "ftp"]
+arbitrary_execution = ["xargs"]
+privilege_escalation = ["sudo", "su", "doas", "pkexec"]
+
+[system_read_paths]
+# System paths needed for executables to run
+# Platform-specific paths are in separate sections
+
+# Common to both platforms
+common = [
+    "/bin",
+    "/usr/bin",
+    "/usr/local/bin",
+    "/sbin",
+    "/usr/sbin",
+]
+
+[system_read_paths.linux]
+# Shared libraries
+libraries = [
+    "/lib",
+    "/lib64",
+    "/usr/lib",
+    "/usr/lib64",
+    "/usr/local/lib",
+    "/usr/local/lib64",
+]
+
+# Dynamic linker configuration
+linker = [
+    "/etc/ld.so.cache",
+    "/etc/ld.so.conf",
+    "/etc/ld.so.conf.d",
+]
+
+# System configuration commonly needed by programs
+config = [
+    "/etc/passwd",
+    "/etc/group",
+    "/etc/nsswitch.conf",
+    "/etc/resolv.conf",
+    "/etc/hosts",
+    "/etc/hostname",
+    "/etc/machine-id",
+]
+
+# Locale and timezone data
+locale = [
+    "/usr/share/locale",
+    "/usr/share/zoneinfo",
+    "/etc/localtime",
+    "/etc/timezone",
+]
+
+# SSL certificates
+ssl = [
+    "/etc/ssl",
+    "/etc/pki",
+    "/usr/share/ca-certificates",
+]
+
+# Terminfo for terminal apps
+terminfo = [
+    "/usr/share/terminfo",
+    "/lib/terminfo",
+    "/etc/terminfo",
+]
+
+# Device files - only safe, commonly needed devices
+# (NOT /dev as a whole, which would expose /dev/sda, /dev/mem, etc.)
+devices = [
+    "/dev/null",
+    "/dev/zero",
+    "/dev/random",
+    "/dev/urandom",
+    "/dev/full",
+    "/dev/tty",
+    "/dev/console",
+    "/dev/stdin",
+    "/dev/stdout",
+    "/dev/stderr",
+    "/dev/fd",
+    "/dev/pts",
+]
+
+# Proc and sys filesystems
+proc = [
+    "/proc",
+    "/sys",
+    "/run",
+    "/var/run",
+]
+
+[system_read_paths.macos]
+# macOS executables and libraries
+executables = [
+    "/System/Library",
+    "/Library",
+    "/usr/lib",
+]
+
+# macOS allows broader dev access (sandboxed differently)
+devices = ["/dev"]
+
+# Frameworks
+frameworks = [
+    "/System/Library/Frameworks",
+    "/Library/Frameworks",
+]
+
+# macOS writable system paths (needed for many tools)
+writable = [
+    "/private/tmp",
+    "/tmp",
+    "/private/var/folders",
+]

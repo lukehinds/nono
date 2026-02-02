@@ -1,5 +1,6 @@
 mod capability;
 mod cli;
+mod config;
 mod error;
 mod keystore;
 mod output;
@@ -16,131 +17,6 @@ use std::path::Path;
 use std::process::Command;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
-
-/// Commands that are blocked by default due to destructive potential
-const DANGEROUS_COMMANDS: &[&str] = &[
-    // File destruction
-    "rm",
-    "rmdir",
-    "shred",
-    "srm", // secure rm
-    // Disk/filesystem destruction
-    "dd",
-    "mkfs",
-    "mkfs.ext4",
-    "mkfs.xfs",
-    "mkfs.btrfs",
-    "mkswap",
-    "fdisk",
-    "parted",
-    "gdisk",
-    "wipefs",
-    // Permission/ownership chaos
-    "chmod",
-    "chown",
-    "chgrp",
-    "chattr",
-    // System modification
-    "init",
-    "shutdown",
-    "reboot",
-    "halt",
-    "poweroff",
-    "systemctl",
-    // Package management (can break system)
-    "apt",
-    "apt-get",
-    "dpkg",
-    "yum",
-    "dnf",
-    "pacman",
-    "brew",
-    "pip", // can overwrite system packages
-    // Dangerous file operations
-    "mv",       // can overwrite files
-    "cp",       // with -f can overwrite
-    "truncate", // can zero out files
-    // Network exfiltration tools
-    "scp",
-    "rsync",
-    "sftp",
-    "ftp",
-    // Arbitrary code execution helpers
-    "xargs", // can execute arbitrary commands
-    // Credential access
-    "sudo",
-    "su",
-    "doas",
-    "pkexec",
-];
-
-/// List of sensitive paths that are always blocked
-const SENSITIVE_PATHS: &[&str] = &[
-    "~/.ssh",
-    "~/.aws",
-    "~/.gnupg",
-    "~/.kube",
-    "~/.docker",
-    "~/.npmrc",
-    "~/.git-credentials",
-    "~/.netrc",
-    "~/.zshrc",
-    "~/.zprofile",
-    "~/.zshenv",
-    "~/.bashrc",
-    "~/.bash_profile",
-    "~/.profile",
-    "~/.bash_history",
-    "~/.zsh_history",
-    "~/Library/Keychains",
-    "~/.credentials",
-    "~/.secrets",
-    "~/.azure",
-    "~/.gcloud",
-    "~/.config/gcloud",
-    "~/.password-store",
-    "~/.1password",
-    "~/.keys",
-    "~/.pki",
-    "~/.terraform.d",
-    "~/.vault-token",
-];
-
-/// Check if a command is in the dangerous commands list
-/// Returns the matched command name if blocked, None if allowed
-///
-/// Uses OsStr for all comparisons to prevent bypass via non-UTF8 paths.
-/// If a path contains non-UTF8 characters, we still correctly extract
-/// and compare the binary name.
-fn is_blocked_command(
-    cmd: &str,
-    allowed_commands: &[String],
-    extra_blocked: &[String],
-) -> Option<String> {
-    use std::ffi::OsStr;
-
-    // Extract just the binary name (handle paths like /bin/rm)
-    // Use OsStr to handle non-UTF8 paths safely
-    let binary_os = Path::new(cmd)
-        .file_name()
-        .unwrap_or_else(|| OsStr::new(cmd));
-
-    // Check if explicitly allowed (overrides default blocklist)
-    if allowed_commands.iter().any(|a| OsStr::new(a) == binary_os) {
-        return None;
-    }
-
-    // Check extra blocked commands first
-    if extra_blocked.iter().any(|b| OsStr::new(b) == binary_os) {
-        return Some(binary_os.to_string_lossy().into_owned());
-    }
-
-    // Check default dangerous commands list
-    DANGEROUS_COMMANDS
-        .iter()
-        .find(|&&blocked| OsStr::new(blocked) == binary_os)
-        .map(|&s| s.to_string())
-}
 
 fn main() {
     // Initialize logging
@@ -200,36 +76,33 @@ fn run_why(args: WhyArgs) -> Result<()> {
         path_str.clone()
     };
 
-    // Check if path is in sensitive paths list
-    for sensitive in SENSITIVE_PATHS {
-        let expanded_sensitive = sensitive.replace('~', &home);
-
-        // Check if the path matches or is under a sensitive path
-        if expanded_path == expanded_sensitive
-            || expanded_path.starts_with(&format!("{}/", expanded_sensitive))
-        {
-            println!("BLOCKED: {} is a sensitive path", path.display());
-            println!();
-            println!("Reason: This path is in the always-blocked list because it may contain:");
-            println!("  - Credentials (API keys, tokens, passwords)");
-            println!("  - Private keys (SSH, GPG, TLS)");
-            println!("  - Shell configuration (which often embeds secrets)");
-            println!();
-            if args.suggest {
-                let flag = if path.is_file() || !Path::new(&expanded_path).exists() {
-                    "--read-file"
-                } else {
-                    "--read"
-                };
-                println!(
-                    "To allow access, re-run nono with: {} {}",
-                    flag,
-                    path.display()
-                );
-                println!("WARNING: Granting access to sensitive paths can expose secrets to untrusted code.");
-            }
-            return Ok(());
+    // Check if path is in sensitive paths list using config module
+    if let Some(reason) = config::check_sensitive_path(&path_str) {
+        println!("BLOCKED: {} is a sensitive path", path.display());
+        println!();
+        println!("Reason: {}", reason);
+        println!();
+        println!("This path is in the always-blocked list because it may contain:");
+        println!("  - Credentials (API keys, tokens, passwords)");
+        println!("  - Private keys (SSH, GPG, TLS)");
+        println!("  - Shell configuration (which often embeds secrets)");
+        println!();
+        if args.suggest {
+            let flag = if path.is_file() || !Path::new(&expanded_path).exists() {
+                "--read-file"
+            } else {
+                "--read"
+            };
+            println!(
+                "To allow access, re-run nono with: {} {}",
+                flag,
+                path.display()
+            );
+            println!(
+                "WARNING: Granting access to sensitive paths can expose secrets to untrusted code."
+            );
         }
+        return Ok(());
     }
 
     // Check if path exists
@@ -331,10 +204,10 @@ fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
         return Err(NonoError::NoCapabilities);
     }
 
-    // Check if command is blocked
+    // Check if command is blocked using config module
     let program = &args.command[0];
     if let Some(blocked) =
-        is_blocked_command(program, &caps.allowed_commands, &caps.blocked_commands)
+        config::check_blocked_command(program, &caps.allowed_commands, &caps.blocked_commands)
     {
         return Err(NonoError::BlockedCommand {
             command: blocked,
@@ -414,7 +287,7 @@ fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
             .join(":")
     };
 
-    let blocked_paths = SENSITIVE_PATHS.join(":");
+    let blocked_paths = config::get_sensitive_paths().join(":");
 
     let nono_context = format!(
         "You are running inside the nono sandbox (v{}). \
@@ -472,77 +345,93 @@ mod tests {
 
     #[test]
     fn test_sensitive_paths_defined() {
-        // Verify expected sensitive paths are included
-        assert!(SENSITIVE_PATHS.contains(&"~/.ssh"));
-        assert!(SENSITIVE_PATHS.contains(&"~/.aws"));
+        // Verify expected sensitive paths are included in embedded config
+        let paths = config::get_sensitive_paths();
+        assert!(paths.iter().any(|p| p.contains("ssh")));
+        assert!(paths.iter().any(|p| p.contains("aws")));
     }
 
     #[test]
     fn test_dangerous_commands_defined() {
-        // Verify expected dangerous commands are included
-        assert!(DANGEROUS_COMMANDS.contains(&"rm"));
-        assert!(DANGEROUS_COMMANDS.contains(&"dd"));
-        assert!(DANGEROUS_COMMANDS.contains(&"chmod"));
+        // Verify expected dangerous commands are included in embedded config
+        let commands = config::get_dangerous_commands();
+        assert!(commands.contains("rm"));
+        assert!(commands.contains("dd"));
+        assert!(commands.contains("chmod"));
     }
 
     #[test]
-    fn test_is_blocked_command_basic() {
+    fn test_check_blocked_command_basic() {
         // Blocked commands should be detected
-        assert!(is_blocked_command("rm", &[], &[]).is_some());
-        assert!(is_blocked_command("dd", &[], &[]).is_some());
-        assert!(is_blocked_command("chmod", &[], &[]).is_some());
+        assert!(config::check_blocked_command("rm", &[], &[]).is_some());
+        assert!(config::check_blocked_command("dd", &[], &[]).is_some());
+        assert!(config::check_blocked_command("chmod", &[], &[]).is_some());
 
         // Safe commands should not be blocked
-        assert!(is_blocked_command("echo", &[], &[]).is_none());
-        assert!(is_blocked_command("ls", &[], &[]).is_none());
-        assert!(is_blocked_command("cat", &[], &[]).is_none());
+        assert!(config::check_blocked_command("echo", &[], &[]).is_none());
+        assert!(config::check_blocked_command("ls", &[], &[]).is_none());
+        assert!(config::check_blocked_command("cat", &[], &[]).is_none());
     }
 
     #[test]
-    fn test_is_blocked_command_with_path() {
+    fn test_check_blocked_command_with_path() {
         // Full paths should still be detected
-        assert!(is_blocked_command("/bin/rm", &[], &[]).is_some());
-        assert!(is_blocked_command("/usr/bin/dd", &[], &[]).is_some());
-        assert!(is_blocked_command("./rm", &[], &[]).is_some());
+        assert!(config::check_blocked_command("/bin/rm", &[], &[]).is_some());
+        assert!(config::check_blocked_command("/usr/bin/dd", &[], &[]).is_some());
+        assert!(config::check_blocked_command("./rm", &[], &[]).is_some());
     }
 
     #[test]
-    fn test_is_blocked_command_allow_override() {
+    fn test_check_blocked_command_allow_override() {
         // Explicitly allowed commands should not be blocked
         let allowed = vec!["rm".to_string()];
-        assert!(is_blocked_command("rm", &allowed, &[]).is_none());
+        assert!(config::check_blocked_command("rm", &allowed, &[]).is_none());
 
         // Other commands still blocked
-        assert!(is_blocked_command("dd", &allowed, &[]).is_some());
+        assert!(config::check_blocked_command("dd", &allowed, &[]).is_some());
     }
 
     #[test]
-    fn test_is_blocked_command_extra_blocked() {
+    fn test_check_blocked_command_extra_blocked() {
         // Extra blocked commands should be detected
         let extra = vec!["custom-dangerous".to_string()];
-        assert!(is_blocked_command("custom-dangerous", &[], &extra).is_some());
+        assert!(config::check_blocked_command("custom-dangerous", &[], &extra).is_some());
 
         // Default blocked still works
-        assert!(is_blocked_command("rm", &[], &extra).is_some());
+        assert!(config::check_blocked_command("rm", &[], &extra).is_some());
     }
 
     #[test]
-    fn test_is_blocked_command_no_file_name() {
+    fn test_check_blocked_command_no_file_name() {
         // Edge case: path with no file name (e.g., just "/")
         // Should fall back to using the full path and not crash
-        assert!(is_blocked_command("/", &[], &[]).is_none());
-        assert!(is_blocked_command("", &[], &[]).is_none());
+        assert!(config::check_blocked_command("/", &[], &[]).is_none());
+        assert!(config::check_blocked_command("", &[], &[]).is_none());
     }
 
     #[test]
-    fn test_is_blocked_command_osstr_comparison() {
+    fn test_check_blocked_command_osstr_comparison() {
         // Verify OsStr comparison works correctly for various path formats
-        assert!(is_blocked_command("rm", &[], &[]).is_some());
-        assert!(is_blocked_command("./rm", &[], &[]).is_some());
-        assert!(is_blocked_command("../rm", &[], &[]).is_some());
-        assert!(is_blocked_command("/usr/local/bin/rm", &[], &[]).is_some());
+        assert!(config::check_blocked_command("rm", &[], &[]).is_some());
+        assert!(config::check_blocked_command("./rm", &[], &[]).is_some());
+        assert!(config::check_blocked_command("../rm", &[], &[]).is_some());
+        assert!(config::check_blocked_command("/usr/local/bin/rm", &[], &[]).is_some());
 
         // Nested paths should still extract correct binary name
-        assert!(is_blocked_command("/some/deeply/nested/path/to/rm", &[], &[]).is_some());
+        assert!(
+            config::check_blocked_command("/some/deeply/nested/path/to/rm", &[], &[]).is_some()
+        );
+    }
+
+    #[test]
+    fn test_check_sensitive_path() {
+        // Verify sensitive path checking works
+        assert!(config::check_sensitive_path("~/.ssh").is_some());
+        assert!(config::check_sensitive_path("~/.aws").is_some());
+        assert!(config::check_sensitive_path("~/.bashrc").is_some());
+
+        // Non-sensitive paths should return None
+        assert!(config::check_sensitive_path("/tmp").is_none());
+        assert!(config::check_sensitive_path("~/Documents").is_none());
     }
 }
