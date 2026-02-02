@@ -25,6 +25,25 @@ keychain = ["~/Library/Keychains"]
 password_store = ["~/.password-store"]
 onepassword = ["~/.1password"]
 
+# macOS-specific sensitive data
+macos_private = [
+    "~/Library/Messages",
+    "~/Library/Mail",
+    "~/Library/Cookies",
+    "~/Library/Safari",
+    "~/Library/Containers/com.apple.Safari",
+    "~/Library/Application Support/MobileSync",
+]
+
+# Browser profiles (cookies, saved passwords, sessions)
+browser_data = [
+    "~/Library/Application Support/Google/Chrome",
+    "~/Library/Application Support/Firefox",
+    "~/Library/Application Support/Microsoft Edge",
+    "~/Library/Application Support/Arc",
+    "~/Library/Application Support/Brave Browser",
+]
+
 # Credential files
 credential_files = [
     "~/.git-credentials",
@@ -188,6 +207,7 @@ executables = [
     "/System/Library",
     "/Library",
     "/usr/lib",
+    "/usr/local/lib",
 ]
 
 # macOS allows broader dev access (sandboxed differently)
@@ -197,6 +217,56 @@ devices = ["/dev"]
 frameworks = [
     "/System/Library/Frameworks",
     "/Library/Frameworks",
+]
+
+# Dynamic linker cache (critical for dyld)
+dyld = [
+    "/private/var/db/dyld",
+    "/var/db/dyld",
+    "/var/db",
+]
+
+# SSL certificates and system config
+ssl = [
+    "/private/etc/ssl",
+    "/etc/ssl",
+    "/etc",
+    "/private/etc",
+]
+
+# Locale and timezone data, plus shared data
+locale = [
+    "/usr/share/zoneinfo",
+    "/usr/share/locale",
+    "/var/db/timezone",
+    "/usr/share",
+]
+
+# Terminfo for terminal apps
+terminfo = [
+    "/usr/share/terminfo",
+]
+
+# System paths and their symlink targets
+# macOS uses /private for actual paths with symlinks from root
+# Also need /System/Volumes for modern macOS (10.15+) which uses APFS volumes
+system = [
+    "/var",
+    "/private/var",
+    "/private",
+    "/System/Volumes",
+    "/Applications",
+    "/cores",
+    "/opt",
+    "/Volumes",
+]
+
+# User library paths (need ~ expansion at runtime)
+# Only specific subdirectories, not all of ~/Library
+user_library = [
+    "~/Library/Caches",
+    "~/Library/Logs",
+    "~/Library/Preferences",
 ]
 
 # macOS writable system paths (needed for many tools)

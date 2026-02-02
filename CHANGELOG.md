@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Fixed macOS Seatbelt allowing all file reads** - Removed blanket `(allow file-read*)` that made `--allow` ineffective. Now uses explicit allow-listing matching Linux Landlock behavior.
+- Implemented "Allow Discovery, Deny Content" strategy for sensitive paths:
+  - `file-read-metadata` allowed (stat, existence checks)
+  - `file-read-data` denied (actual content reads blocked)
+- Narrowed `system*` permissions to only `system-socket`, `system-fsctl`, `system-info`
+- Narrowed `sysctl*` to `sysctl-read` (blocks kernel parameter writes)
+- Fixed sensitive path override logic to require explicit grants (granting `~` no longer bypasses `~/.ssh` protection)
+- Fixed Seatbelt rule ordering so user-granted paths can delete files while global unlink is blocked
+- Added `file-map-executable` permission (required for dyld)
+- Expanded sensitive path protection:
+  - Browser data (Chrome, Firefox, Safari, Edge, Arc, Brave)
+  - macOS private data (Messages, Mail, Cookies, MobileSync)
+  - Password managers (Keychains, 1Password, pass)
+  - Shell configs and history files
+
+### Changed
+- Expanded `security-lists.toml` with comprehensive macOS system paths (dyld, ssl, locale, terminfo, system, user_library)
+- Improved Seatbelt documentation with technical clarifications:
+  - Added note about private `sandbox_init()` API stability
+  - Clarified network filtering capabilities (IP filtering possible, domain filtering not)
+  - Explained APFS firmlinks and path resolution on macOS 10.15+
+  - Added common debugging issues table
+
 ## [0.1.0] - 2025-02-01
 
 ### Added

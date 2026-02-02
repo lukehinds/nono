@@ -46,6 +46,16 @@ fn get_sensitive_paths() -> Vec<String> {
     }
 }
 
+/// Expand ~ to home directory
+fn expand_home(path: &str) -> String {
+    if path.starts_with("~/") || path == "~" {
+        if let Ok(home) = std::env::var("HOME") {
+            return path.replacen("~", &home, 1);
+        }
+    }
+    path.to_string()
+}
+
 /// Generate a Seatbelt profile from capabilities
 fn generate_profile(caps: &CapabilitySet) -> String {
     let mut profile = String::new();
@@ -56,33 +66,116 @@ fn generate_profile(caps: &CapabilitySet) -> String {
     // Start with deny default, but we'll allow many things needed for basic operation
     profile.push_str("(deny default)\n");
 
-    // Debug: log denials (comment out for production)
+    // Debug: log denials (uncomment for debugging)
     // profile.push_str("(debug deny)\n");
 
     // Allow all process operations
     profile.push_str("(allow process*)\n");
 
-    // Allow all system operations except what we specifically want to deny
-    profile.push_str("(allow sysctl*)\n");
+    // Allow specific system operations (narrowed from blanket system*)
+    profile.push_str("(allow sysctl-read)\n");
     profile.push_str("(allow mach*)\n");
     profile.push_str("(allow ipc*)\n");
     profile.push_str("(allow signal)\n");
-    profile.push_str("(allow system*)\n");
+    // Only allow system operations commonly needed by programs:
+    // - system-socket: for network socket operations
+    // - system-fsctl: for filesystem control operations
+    // - system-info: for reading system information (uname, etc.)
+    // Notably omitted: system-audit, system-privilege, system-reboot, system-set-time
+    profile.push_str("(allow system-socket)\n");
+    profile.push_str("(allow system-fsctl)\n");
+    profile.push_str("(allow system-info)\n");
 
     // File read permissions:
-    // Allow all file reads EXCEPT sensitive credential paths
-    // This is a pragmatic compromise: executables need broad read access to function,
-    // but we explicitly protect high-value credential locations
-    profile.push_str("(allow file-read*)\n");
+    // Default DENY for all file reads (via deny default above)
+    // Explicitly allow only system paths and user-granted paths
 
-    // Deny access to sensitive paths (credentials, keys, tokens)
-    // These denials override the allow above
+    // Allow reading the root directory entry itself (NOT subpaths)
+    // This is required because nono uses sandbox_init() then exec().
+    // When exec() runs, the kernel resolves the binary path which requires
+    // stat/readdir on "/" for path canonicalization.
+    // Note: (literal "/") only allows access to "/" itself, NOT files under it.
+    // Files like /etc/passwd remain blocked unless explicitly allowed.
+    profile.push_str("(allow file-read* (literal \"/\"))\n");
+
+    // Allow mapping executables into memory (required for dyld to load binaries)
+    // Without this, exec() will abort even if file-read* is allowed
+    profile.push_str("(allow file-map-executable)\n");
+
+    // 1. Allow system paths from config (needed for executables to function)
+    let system_paths = config::get_system_read_paths();
+    for path in &system_paths {
+        // Expand ~ to home directory for user_library paths
+        let expanded = expand_home(path);
+        if !expanded.is_empty() {
+            let escaped = expanded.replace('\\', "\\\\").replace('"', "\\\"");
+            profile.push_str(&format!("(allow file-read* (subpath \"{}\"))\n", escaped));
+        }
+    }
+
+    // 2. Allow TMPDIR for temp file reads (dynamic path)
+    if let Ok(tmpdir) = std::env::var("TMPDIR") {
+        let escaped = tmpdir.replace('\\', "\\\\").replace('"', "\\\"");
+        profile.push_str(&format!("(allow file-read* (subpath \"{}\"))\n", escaped));
+    }
+
+    // Allow file ioctl for TTY
+    profile.push_str("(allow file-ioctl)\n");
+
+    // 3. Add user-specified filesystem capabilities for reads
+    for cap in &caps.fs {
+        let path = cap.resolved.display().to_string();
+        let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
+
+        let path_filter = if cap.is_file {
+            format!("literal \"{}\"", escaped_path)
+        } else {
+            format!("subpath \"{}\"", escaped_path)
+        };
+
+        match cap.access {
+            FsAccess::Read | FsAccess::ReadWrite => {
+                profile.push_str(&format!("(allow file-read* ({}))\n", path_filter));
+            }
+            FsAccess::Write => {
+                // Write-only doesn't need read access
+            }
+        }
+    }
+
+    // 4. Deny access to sensitive paths (credentials, keys, tokens)
+    // These denials override the allows above, UNLESS user explicitly granted access
+    //
+    // Strategy: "Allow Discovery, Deny Content"
+    // - file-read-data: Blocks reading actual file contents (cat, read, mmap)
+    // - file-read-metadata: Allows stat, existence checks, directory listing
+    //
+    // This approach prevents data exfiltration while allowing programs to check
+    // if files exist (for graceful error handling) without crashing.
     for path in get_sensitive_paths() {
         let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
-        profile.push_str(&format!(
-            "(deny file-read* (subpath \"{}\"))\n",
-            escaped_path
-        ));
+
+        // Check if user explicitly granted access to this sensitive path
+        // Only skip denial if the granted path IS the sensitive path or a subpath of it.
+        // This prevents granting ~ or ~/Library from disabling protection for ~/.ssh or ~/Library/Keychains.
+        // User must explicitly grant --read ~/.ssh to access SSH keys.
+        let user_granted = caps.fs.iter().any(|cap| {
+            let cap_path = cap.resolved.display().to_string();
+            cap_path.starts_with(&path)
+        });
+
+        if !user_granted {
+            // Allow metadata access (stat, existence checks) for graceful error handling
+            profile.push_str(&format!(
+                "(allow file-read-metadata (subpath \"{}\"))\n",
+                escaped_path
+            ));
+            // Deny reading actual file content (the sensitive data)
+            profile.push_str(&format!(
+                "(deny file-read-data (subpath \"{}\"))\n",
+                escaped_path
+            ));
+        }
     }
 
     // Allow writes only to specific system paths and granted paths
@@ -93,53 +186,15 @@ fn generate_profile(caps: &CapabilitySet) -> String {
     profile.push_str("    (subpath \"/private/var/folders\")\n");
     profile.push_str(")\n");
 
-    // Allow file ioctl for TTY
-    profile.push_str("(allow file-ioctl)\n");
-
-    // Add user-specified filesystem capabilities
-    // Note: These come AFTER the deny rules, so explicit user grants can override
-    // the sensitive path denials. This is intentional - if a user explicitly grants
-    // access to ~/.ssh, we respect that decision.
-    for cap in &caps.fs {
-        let path = cap.resolved.display().to_string();
-        // Escape any special characters in path
-        let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
-
-        // Use "literal" for files, "subpath" for directories
-        let path_filter = if cap.is_file {
-            format!("literal \"{}\"", escaped_path)
-        } else {
-            format!("subpath \"{}\"", escaped_path)
-        };
-
-        match cap.access {
-            FsAccess::Read => {
-                profile.push_str(&format!("(allow file-read* ({}))\n", path_filter));
-            }
-            FsAccess::Write => {
-                profile.push_str(&format!("(allow file-write* ({}))\n", path_filter));
-                // Allow file deletion (unlink) for writable paths
-                profile.push_str(&format!("(allow file-write-unlink ({}))\n", path_filter));
-            }
-            FsAccess::ReadWrite => {
-                profile.push_str(&format!(
-                    "(allow file-read* file-write* ({}))\n",
-                    path_filter
-                ));
-                // Allow file deletion (unlink) for writable paths
-                profile.push_str(&format!("(allow file-write-unlink ({}))\n", path_filter));
-            }
-        }
+    // Allow TMPDIR for writes too
+    if let Ok(tmpdir) = std::env::var("TMPDIR") {
+        let escaped = tmpdir.replace('\\', "\\\\").replace('"', "\\\"");
+        profile.push_str(&format!("(allow file-write* (subpath \"{}\"))\n", escaped));
     }
 
-    // Allow read access to user's home directory essentials
-    // (library caches, preferences, etc. needed for many tools)
+    // Allow writes to user's ~/Library/Caches and ~/Library/Logs
     if let Ok(home) = std::env::var("HOME") {
         let home_escaped = home.replace('\\', "\\\\").replace('"', "\\\"");
-        profile.push_str(&format!(
-            "(allow file-read* (subpath \"{}/Library\"))\n",
-            home_escaped
-        ));
         profile.push_str(&format!(
             "(allow file-write* (subpath \"{}/Library/Caches\"))\n",
             home_escaped
@@ -150,13 +205,35 @@ fn generate_profile(caps: &CapabilitySet) -> String {
         ));
     }
 
-    // Block destructive file operations globally
-    // These deny rules prevent file deletion and truncation as defense-in-depth
-    // against destructive commands like `rm -rf` or accidental data loss.
-    // Note: These use file-write-unlink for file deletion.
-    // Seatbelt doesn't have separate truncate operation, but file-write-mode
-    // controls the ability to modify file contents (including truncation via open with O_TRUNC).
+    // 5. Block destructive file operations globally (BEFORE user-granted allows)
+    // In Seatbelt, specific allows override broader denies when the allow comes later.
+    // By placing the global deny first, user-granted paths can still allow deletion.
+    // This prevents rm -rf style attacks while allowing intentional file management.
     profile.push_str("(deny file-write-unlink)\n");
+
+    // 6. Add user-specified filesystem capabilities for writes
+    // These specific allows override the global deny above for user-granted paths
+    for cap in &caps.fs {
+        let path = cap.resolved.display().to_string();
+        let escaped_path = path.replace('\\', "\\\\").replace('"', "\\\"");
+
+        let path_filter = if cap.is_file {
+            format!("literal \"{}\"", escaped_path)
+        } else {
+            format!("subpath \"{}\"", escaped_path)
+        };
+
+        match cap.access {
+            FsAccess::Write | FsAccess::ReadWrite => {
+                profile.push_str(&format!("(allow file-write* ({}))\n", path_filter));
+                // Allow file deletion (unlink) for writable paths
+                profile.push_str(&format!("(allow file-write-unlink ({}))\n", path_filter));
+            }
+            FsAccess::Read => {
+                // Read-only doesn't need write access
+            }
+        }
+    }
 
     // Network rules
     // Note: macOS Seatbelt supports some filtering (tcp/udp, local/remote, ports)
@@ -243,8 +320,9 @@ mod tests {
 
         let profile = generate_profile(&caps);
 
-        assert!(profile.contains("file-read* file-write*"));
-        assert!(profile.contains("subpath \"/test\""));
+        // ReadWrite now generates separate read and write rules
+        assert!(profile.contains("(allow file-read* (subpath \"/test\"))"));
+        assert!(profile.contains("(allow file-write* (subpath \"/test\"))"));
     }
 
     #[test]
@@ -305,11 +383,19 @@ mod tests {
         let caps = CapabilitySet::default();
         let profile = generate_profile(&caps);
 
-        // Should deny common sensitive paths
+        // Should deny data reads for common sensitive paths (but allow metadata)
         assert!(profile.contains(".ssh"));
         assert!(profile.contains(".aws"));
         assert!(profile.contains(".gnupg"));
-        assert!(profile.contains("(deny file-read*"));
+        // "Allow Discovery, Deny Content" strategy
+        assert!(
+            profile.contains("(allow file-read-metadata"),
+            "Should allow metadata for graceful error handling"
+        );
+        assert!(
+            profile.contains("(deny file-read-data"),
+            "Should deny data reads for sensitive paths"
+        );
     }
 
     #[test]
@@ -340,5 +426,65 @@ mod tests {
             profile.contains("(deny file-write-unlink)"),
             "Profile should block file deletion"
         );
+    }
+
+    #[test]
+    fn test_profile_no_blanket_file_read_allow() {
+        let caps = CapabilitySet::default();
+        let profile = generate_profile(&caps);
+
+        // Should NOT contain blanket allow (the security fix)
+        // Check that there's no standalone "(allow file-read*)" without a path filter
+        let has_blanket = profile.lines().any(|line| {
+            let trimmed = line.trim();
+            trimmed == "(allow file-read*)" || trimmed == "(allow file-read* )"
+        });
+        assert!(
+            !has_blanket,
+            "Profile should not have blanket file-read allow"
+        );
+    }
+
+    #[test]
+    fn test_profile_allows_system_paths() {
+        let caps = CapabilitySet::default();
+        let profile = generate_profile(&caps);
+
+        // Should allow critical system paths from config
+        assert!(
+            profile.contains("(allow file-read* (subpath \"/System/Library\"))"),
+            "Profile should allow /System/Library"
+        );
+        assert!(
+            profile.contains("(allow file-read* (subpath \"/usr/lib\"))"),
+            "Profile should allow /usr/lib"
+        );
+    }
+
+    #[test]
+    fn test_user_grant_allows_read() {
+        let mut caps = CapabilitySet::default();
+        caps.fs.push(FsCapability {
+            original: PathBuf::from("/Users/test/project"),
+            resolved: PathBuf::from("/Users/test/project"),
+            access: FsAccess::Read,
+            is_file: false,
+        });
+
+        let profile = generate_profile(&caps);
+
+        assert!(
+            profile.contains("(allow file-read* (subpath \"/Users/test/project\"))"),
+            "Profile should allow user-granted read path"
+        );
+    }
+
+    #[test]
+    fn test_expand_home() {
+        // Test ~ expansion
+        std::env::set_var("HOME", "/Users/testuser");
+        assert_eq!(expand_home("~/Library"), "/Users/testuser/Library");
+        assert_eq!(expand_home("~"), "/Users/testuser");
+        assert_eq!(expand_home("/absolute/path"), "/absolute/path");
     }
 }
