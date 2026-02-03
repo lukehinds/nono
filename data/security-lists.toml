@@ -198,6 +198,12 @@ proc = [
     "/var/run",
 ]
 
+# NixOS / Nix package manager
+# All Nix-managed binaries and libraries live in /nix/store
+nix = [
+    "/nix",
+]
+
 [system_read_paths.macos]
 # macOS executables and libraries
 executables = [
