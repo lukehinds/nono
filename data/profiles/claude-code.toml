@@ -13,7 +13,7 @@ min_nono_version = "0.2.0"
 # WORKDIR: where the agent works on code
 # ~/.claude: agent state, debug logs, projects, etc.
 allow = ["$WORKDIR", "$HOME/.claude"]
-read = ["$HOME/.config/claude-code"]
+read = []
 write = []
 
 [filesystem.files]

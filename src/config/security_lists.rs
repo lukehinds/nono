@@ -117,6 +117,8 @@ pub struct LinuxSystemPaths {
     pub proc: Vec<String>,
     #[serde(default)]
     pub nix: Vec<String>,
+    #[serde(default)]
+    pub tmp: Vec<String>,
 }
 
 /// macOS-specific system paths
@@ -203,6 +205,7 @@ impl SecurityLists {
             paths.extend(self.system_read_paths.linux.devices.iter().cloned());
             paths.extend(self.system_read_paths.linux.proc.iter().cloned());
             paths.extend(self.system_read_paths.linux.nix.iter().cloned());
+            paths.extend(self.system_read_paths.linux.tmp.iter().cloned());
         }
 
         #[cfg(target_os = "macos")]

@@ -40,7 +40,7 @@ fn claude_code() -> Profile {
             // WORKDIR: where the agent works on code
             // ~/.claude: agent state, debug logs, projects, etc.
             allow: vec!["$WORKDIR".to_string(), "$HOME/.claude".to_string()],
-            read: vec!["$HOME/.config/claude-code".to_string()],
+            read: vec![],
             write: vec![],
             // ~/.claude.json: agent writes settings/state here
             allow_file: vec!["$HOME/.claude.json".to_string()],

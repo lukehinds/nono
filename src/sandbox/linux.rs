@@ -103,23 +103,50 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
     let read_access = access_to_landlock(FsAccess::Read, TARGET_ABI);
     let system_paths = config::get_system_read_paths();
     for path_str in &system_paths {
-        let path = Path::new(path_str);
-        if path.exists() {
-            match PathFd::new(path) {
-                Ok(path_fd) => {
-                    debug!("Adding system read rule: {}", path_str);
-                    ruleset = ruleset.add_rule(PathBeneath::new(path_fd, read_access))?;
-                }
-                Err(e) => {
-                    debug!("Skipping system path {} (cannot open: {})", path_str, e);
-                }
-            }
-        } else {
-            debug!("Skipping system path {} (does not exist)", path_str);
+        // Skip virtual filesystems that often fail with EBADFD in containers.
+        // These filesystems (procfs, sysfs, devtmpfs, tmpfs) don't reliably support
+        // Landlock path-based rules, especially in namespaced/containerized environments.
+        // Programs still get access through normal kernel mechanisms.
+        if path_str.starts_with("/dev")
+            || path_str.starts_with("/proc")
+            || path_str.starts_with("/sys")
+            || path_str.starts_with("/run")
+        {
+            debug!(
+                "Skipping virtual filesystem {} (may not support Landlock path rules)",
+                path_str
+            );
+            continue;
         }
+
+        let path = Path::new(path_str);
+        if !path.exists() {
+            debug!("Skipping system path {} (does not exist)", path_str);
+            continue;
+        }
+
+        let path_fd = match PathFd::new(path) {
+            Ok(fd) => fd,
+            Err(e) => {
+                warn!("Skipping system path {} (cannot open: {})", path_str, e);
+                continue;
+            }
+        };
+
+        debug!("Adding system read rule: {}", path_str);
+        ruleset = ruleset
+            .add_rule(PathBeneath::new(path_fd, read_access))
+            .map_err(|e| {
+                NonoError::SandboxInit(format!(
+                    "Cannot add Landlock rule for system path {}: {}",
+                    path_str, e
+                ))
+            })?;
     }
 
     // Add rules for each user-specified filesystem capability
+    // These MUST succeed - user explicitly requested these capabilities
+    // Failing silently would violate the principle of least surprise and fail-secure design
     for cap in &caps.fs {
         let access = access_to_landlock(cap.access, TARGET_ABI);
 
@@ -130,7 +157,15 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
         );
 
         let path_fd = PathFd::new(&cap.resolved)?;
-        ruleset = ruleset.add_rule(PathBeneath::new(path_fd, access))?;
+        ruleset = ruleset
+            .add_rule(PathBeneath::new(path_fd, access))
+            .map_err(|e| {
+                NonoError::SandboxInit(format!(
+                    "Cannot add Landlock rule for {}: {} (filesystem may not support Landlock)",
+                    cap.resolved.display(),
+                    e
+                ))
+            })?;
     }
 
     // Apply the ruleset - THIS IS IRREVERSIBLE

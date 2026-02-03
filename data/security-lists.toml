@@ -123,12 +123,16 @@ common = [
 ]
 
 [system_read_paths.linux]
-# Shared libraries
+# Shared libraries (including multiarch paths for Debian/Ubuntu)
 libraries = [
     "/lib",
     "/lib64",
+    "/lib/x86_64-linux-gnu",
+    "/lib/aarch64-linux-gnu",
     "/usr/lib",
     "/usr/lib64",
+    "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib/aarch64-linux-gnu",
     "/usr/local/lib",
     "/usr/local/lib64",
 ]
