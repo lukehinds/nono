@@ -126,6 +126,9 @@ nono run --allow . --net-block -- command
 # Dry run (show what would be sandboxed)
 nono run --allow . --dry-run -- command
 
+# Start an interactive shell inside the sandbox
+nono shell --allow .
+
 # Check why a path would be blocked
 nono why --path ~/.ssh/id_rsa --op read
 ```

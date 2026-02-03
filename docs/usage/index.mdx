@@ -8,11 +8,12 @@ nono wraps any command with an OS-level sandbox. You specify what the command is
 
 ## Commands
 
-nono provides two main commands:
+nono provides three main commands:
 
 | Command | Description |
 |---------|-------------|
 | `nono run` | Run a command inside the sandbox |
+| `nono shell` | Start an interactive shell inside the sandbox |
 | `nono why` | Check why a path/network operation would be allowed or denied |
 | `nono setup` | Sets up profiles (openclaw, claude etc) |
 
@@ -73,6 +74,27 @@ nono run --allow . -- nono why --self --path /tmp --op write --json
 | `--port` | Network port (default: 443) |
 | `--json` | Output JSON for programmatic use |
 | `--self` | Query current sandbox state (inside sandbox) |
+
+## Interactive Shell (`nono shell`)
+
+Start a shell with the same sandbox and permissions as `nono run`, but without wrapping each command.
+
+```bash
+nono shell [OPTIONS]
+```
+
+```bash
+# Shell with access only to current directory
+nono shell --allow .
+
+# Shell with a named profile
+nono shell --profile claude-code
+
+# Override the shell binary
+nono shell --allow . --shell /bin/zsh
+```
+
+Exit the shell with `Ctrl-D` or `exit`.
 
 ## Understanding Permissions
 

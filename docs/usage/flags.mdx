@@ -28,6 +28,14 @@ Run a command inside the sandbox.
 nono run [OPTIONS] -- <COMMAND> [ARGS...]
 ```
 
+### `nono shell`
+
+Start an interactive shell inside the sandbox.
+
+```bash
+nono shell [OPTIONS]
+```
+
 ### `nono why`
 
 Check why a path or network operation would be allowed or denied. Designed for both human debugging and programmatic use by AI agents.
@@ -119,6 +127,18 @@ nono run --write-file ./output.log -- command
 #### `--net-block`
 
 Block all network access. Network is **allowed by default**.
+
+## `nono shell` Options
+
+`nono shell` supports the same permission, profile, secrets, and dry-run flags as `nono run`, plus:
+
+### `--shell`
+
+Override the shell binary.
+
+```bash
+nono shell --allow . --shell /bin/zsh
+```
 
 ```bash
 # Block network for a build process that should be offline

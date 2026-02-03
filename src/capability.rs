@@ -1,4 +1,4 @@
-use crate::cli::RunArgs;
+use crate::cli::SandboxArgs;
 use crate::error::{NonoError, Result};
 use crate::profile::{self, Profile};
 use serde::{Deserialize, Serialize};
@@ -177,7 +177,7 @@ impl CapabilitySet {
     }
 
     /// Build capabilities from CLI arguments
-    pub fn from_args(args: &RunArgs) -> Result<Self> {
+    pub fn from_args(args: &SandboxArgs) -> Result<Self> {
         let mut caps = Self::new();
 
         // Process directory permissions
@@ -224,7 +224,7 @@ impl CapabilitySet {
     }
 
     /// Build capabilities from a profile, with CLI overrides
-    pub fn from_profile(profile: &Profile, workdir: &Path, args: &RunArgs) -> Result<Self> {
+    pub fn from_profile(profile: &Profile, workdir: &Path, args: &SandboxArgs) -> Result<Self> {
         let mut caps = Self::new();
 
         // Helper to process profile paths and add capabilities
@@ -462,7 +462,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().to_path_buf();
 
-        let args = RunArgs {
+        let args = SandboxArgs {
             allow: vec![path.clone()],
             read: vec![],
             write: vec![],
@@ -480,7 +480,6 @@ mod tests {
             config: None,
             verbose: 0,
             dry_run: false,
-            command: vec!["echo".to_string()],
         };
 
         let caps = CapabilitySet::from_args(&args).unwrap();
@@ -495,7 +494,7 @@ mod tests {
         let file_path = dir.path().join("test.txt");
         fs::write(&file_path, "test").unwrap();
 
-        let args = RunArgs {
+        let args = SandboxArgs {
             allow: vec![dir.path().to_path_buf()],
             read: vec![],
             write: vec![],
@@ -513,7 +512,6 @@ mod tests {
             config: None,
             verbose: 0,
             dry_run: false,
-            command: vec!["echo".to_string()],
         };
 
         let caps = CapabilitySet::from_args(&args).unwrap();
@@ -529,7 +527,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().to_path_buf();
 
-        let args = RunArgs {
+        let args = SandboxArgs {
             allow: vec![path.clone()],
             read: vec![],
             write: vec![],
@@ -547,7 +545,6 @@ mod tests {
             config: None,
             verbose: 0,
             dry_run: false,
-            command: vec!["echo".to_string()],
         };
 
         let caps = CapabilitySet::from_args(&args).unwrap();

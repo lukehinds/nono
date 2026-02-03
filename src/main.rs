@@ -12,7 +12,8 @@ mod setup;
 
 use capability::{CapabilitySet, FsAccess, FsCapability};
 use clap::Parser;
-use cli::{Cli, Commands, RunArgs, SetupArgs, WhyArgs, WhyOp};
+use cli::{Cli, Commands, SandboxArgs, SetupArgs, ShellArgs, WhyArgs, WhyOp};
+use colored::Colorize;
 use error::{NonoError, Result};
 use profile::WorkdirAccess;
 use std::os::unix::process::CommandExt;
@@ -43,7 +44,12 @@ fn run() -> Result<()> {
         Commands::Run(args) => {
             // Print banner for run command (unless silent)
             output::print_banner(cli.silent);
-            run_sandbox(*args, cli.silent)
+            run_sandbox(args.sandbox, args.command, cli.silent)
+        }
+        Commands::Shell(args) => {
+            // Print banner for shell command (unless silent)
+            output::print_banner(cli.silent);
+            run_shell(args, cli.silent)
         }
         Commands::Why(args) => {
             // Why doesn't print banner (designed for programmatic use by agents)
@@ -96,8 +102,8 @@ fn run_why(args: WhyArgs) -> Result<()> {
             .or_else(|| std::env::current_dir().ok())
             .unwrap_or_else(|| std::path::PathBuf::from("."));
 
-        // Create a minimal RunArgs to pass to from_profile
-        let run_args = RunArgs {
+        // Create a minimal SandboxArgs to pass to from_profile
+        let sandbox_args = SandboxArgs {
             allow: args.allow.clone(),
             read: args.read.clone(),
             write: args.write.clone(),
@@ -115,13 +121,12 @@ fn run_why(args: WhyArgs) -> Result<()> {
             config: None,
             verbose: 0,
             dry_run: false,
-            command: vec!["query".to_string()],
         };
 
-        CapabilitySet::from_profile(&prof, &workdir, &run_args)?
+        CapabilitySet::from_profile(&prof, &workdir, &sandbox_args)?
     } else {
         // Build from CLI args
-        let run_args = RunArgs {
+        let sandbox_args = SandboxArgs {
             allow: args.allow.clone(),
             read: args.read.clone(),
             write: args.write.clone(),
@@ -139,10 +144,9 @@ fn run_why(args: WhyArgs) -> Result<()> {
             config: None,
             verbose: 0,
             dry_run: false,
-            command: vec!["query".to_string()],
         };
 
-        CapabilitySet::from_args(&run_args)?
+        CapabilitySet::from_args(&sandbox_args)?
     };
 
     // Execute the query
@@ -176,7 +180,132 @@ fn run_why(args: WhyArgs) -> Result<()> {
 }
 
 /// Run a command inside the sandbox
-fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
+fn run_sandbox(args: SandboxArgs, command: Vec<String>, silent: bool) -> Result<()> {
+    // Check if we have a command to run
+    if command.is_empty() {
+        return Err(NonoError::NoCommand);
+    }
+
+    let (caps, loaded_secrets) = prepare_sandbox(&args, silent)?;
+
+    // Check if command is blocked using config module
+    let program = &command[0];
+    if let Some(blocked) =
+        config::check_blocked_command(program, &caps.allowed_commands, &caps.blocked_commands)
+    {
+        return Err(NonoError::BlockedCommand {
+            command: blocked,
+            reason: "This command is blocked by default due to destructive potential. \
+                     Use --allow-command to override if you understand the risks."
+                .to_string(),
+        });
+    }
+
+    // Dry run mode - just show what would happen
+    if args.dry_run {
+        if !loaded_secrets.is_empty() && !silent {
+            eprintln!(
+                "  Would inject {} secret(s) as environment variables",
+                loaded_secrets.len()
+            );
+        }
+        output::print_dry_run(&command, silent);
+        return Ok(());
+    }
+
+    // Apply the sandbox
+    output::print_applying_sandbox(silent);
+    sandbox::apply(&caps)?;
+    output::print_sandbox_active(silent);
+    if !silent {
+        eprintln!(
+            "{}",
+            "Exit the shell with Ctrl-D or 'exit'.".truecolor(150, 150, 150)
+        );
+        eprintln!();
+    }
+
+    // Execute the command
+    let program = &command[0];
+    let cmd_args = &command[1..];
+
+    info!("Executing: {} {:?}", program, cmd_args);
+
+    let cap_file = write_capability_state_file(&caps, silent);
+
+    let mut cmd = Command::new(program);
+    cmd.args(cmd_args);
+    apply_nono_env(&mut cmd, &caps, cap_file.as_deref());
+
+    // Inject secrets as environment variables
+    // These were loaded from the keystore before sandbox was applied
+    for secret in &loaded_secrets {
+        info!("Injecting secret as ${}", secret.env_var);
+        cmd.env(&secret.env_var, secret.value.as_str());
+    }
+
+    let err = cmd.exec();
+
+    // exec() only returns if there's an error
+    // Note: loaded_secrets will be dropped here, zeroizing the secret values
+    Err(NonoError::CommandExecution(err))
+}
+
+/// Run an interactive shell inside the sandbox
+fn run_shell(args: ShellArgs, silent: bool) -> Result<()> {
+    let (caps, loaded_secrets) = prepare_sandbox(&args.sandbox, silent)?;
+
+    let shell_path = args
+        .shell
+        .or_else(|| std::env::var("SHELL").ok().map(std::path::PathBuf::from))
+        .unwrap_or_else(|| std::path::PathBuf::from("/bin/sh"));
+
+    let shell_str = shell_path.to_string_lossy().to_string();
+
+    if let Some(blocked) =
+        config::check_blocked_command(&shell_str, &caps.allowed_commands, &caps.blocked_commands)
+    {
+        return Err(NonoError::BlockedCommand {
+            command: blocked,
+            reason: "This shell is blocked by default due to destructive potential. \
+                     Use --allow-command to override if you understand the risks."
+                .to_string(),
+        });
+    }
+
+    if args.sandbox.dry_run {
+        if !loaded_secrets.is_empty() && !silent {
+            eprintln!(
+                "  Would inject {} secret(s) as environment variables",
+                loaded_secrets.len()
+            );
+        }
+        output::print_dry_run(&vec![shell_str.clone()], silent);
+        return Ok(());
+    }
+
+    // Apply the sandbox
+    output::print_applying_sandbox(silent);
+    sandbox::apply(&caps)?;
+    output::print_sandbox_active(silent);
+
+    let cap_file = write_capability_state_file(&caps, silent);
+
+    let mut cmd = Command::new(shell_path);
+    apply_nono_env(&mut cmd, &caps, cap_file.as_deref());
+
+    // Inject secrets as environment variables
+    // These were loaded from the keystore before sandbox was applied
+    for secret in &loaded_secrets {
+        info!("Injecting secret as ${}", secret.env_var);
+        cmd.env(&secret.env_var, secret.value.as_str());
+    }
+
+    let err = cmd.exec();
+    Err(NonoError::CommandExecution(err))
+}
+
+fn prepare_sandbox(args: &SandboxArgs, silent: bool) -> Result<(CapabilitySet, Vec<keystore::LoadedSecret>)> {
     // Set log level based on verbosity
     if args.verbose > 0 {
         match args.verbose {
@@ -186,15 +315,9 @@ fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
         }
     }
 
-    // Check if we have a command to run
-    if args.command.is_empty() {
-        return Err(NonoError::NoCommand);
-    }
-
     // Clean up stale state files from previous nono runs
     // This prevents disk space exhaustion and information disclosure
     sandbox_state::cleanup_stale_state_files();
-
     // Load profile once if specified (used for both capabilities and secrets)
     let loaded_profile = if let Some(ref profile_name) = args.profile {
         Some(profile::load_profile(profile_name, args.trust_unsigned)?)
@@ -214,9 +337,9 @@ fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
 
     // Build capabilities from profile or arguments
     let mut caps = if let Some(ref prof) = loaded_profile {
-        CapabilitySet::from_profile(prof, &workdir, &args)?
+        CapabilitySet::from_profile(prof, &workdir, args)?
     } else {
-        CapabilitySet::from_args(&args)?
+        CapabilitySet::from_args(args)?
     };
 
     // Auto-include CWD based on profile [workdir] config or default behavior
@@ -273,19 +396,6 @@ fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
         return Err(NonoError::NoCapabilities);
     }
 
-    // Check if command is blocked using config module
-    let program = &args.command[0];
-    if let Some(blocked) =
-        config::check_blocked_command(program, &caps.allowed_commands, &caps.blocked_commands)
-    {
-        return Err(NonoError::BlockedCommand {
-            command: blocked,
-            reason: "This command is blocked by default due to destructive potential. \
-                     Use --allow-command to override if you understand the risks."
-                .to_string(),
-        });
-    }
-
     // Build secret mappings from profile and/or CLI
     let profile_secrets = loaded_profile
         .map(|p| p.secrets.mappings)
@@ -322,65 +432,87 @@ fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
 
     info!("{}", sandbox::support_info());
 
-    // Dry run mode - just show what would happen
-    if args.dry_run {
-        if !loaded_secrets.is_empty() && !silent {
-            eprintln!(
-                "  Would inject {} secret(s) as environment variables",
-                loaded_secrets.len()
-            );
-        }
-        output::print_dry_run(&args.command, silent);
-        return Ok(());
-    }
+    Ok((caps, loaded_secrets))
+}
 
-    // Apply the sandbox
-    output::print_applying_sandbox(silent);
-    sandbox::apply(&caps)?;
-    output::print_sandbox_active(silent);
-
-    // Execute the command
-    let program = &args.command[0];
-    let cmd_args = &args.command[1..];
-
-    info!("Executing: {} {:?}", program, cmd_args);
-
-    // Write sandbox state for `nono query --self`
-    // This allows sandboxed processes to query their own capabilities
+fn write_capability_state_file(caps: &CapabilitySet, silent: bool) -> Option<std::path::PathBuf> {
+    // Write sandbox state for `nono why --self`.
+    // This allows sandboxed processes to query their own capabilities.
     let cap_file = std::env::temp_dir().join(format!(".nono-{}.json", std::process::id()));
-    let state = sandbox_state::SandboxState::from_caps(&caps);
+    let state = sandbox_state::SandboxState::from_caps(caps);
     if let Err(e) = state.write_to_file(&cap_file) {
         error!(
             "Failed to write capability state file: {}. \
-             Sandboxed processes will not be able to query their own capabilities using 'nono query --self'.",
+             Sandboxed processes will not be able to query their own capabilities using 'nono why --self'.",
             e
         );
         if !silent {
             eprintln!(
                 "  WARNING: Capability state file could not be written.\n  \
-                 The sandbox is active, but 'nono query --self' will not work inside this sandbox."
+                 The sandbox is active, but 'nono why --self' will not work inside this sandbox."
             );
         }
-        // Continue anyway - sandbox is already active, only introspection is affected
+        None
+    } else {
+        Some(cap_file)
     }
+}
 
-    let mut cmd = Command::new(program);
-    cmd.args(cmd_args)
-        // Single env var for sandbox state - enables `nono query --self`
-        .env("NONO_CAP_FILE", &cap_file);
+fn apply_nono_env(
+    cmd: &mut Command,
+    caps: &CapabilitySet,
+    cap_file: Option<&std::path::Path>,
+) {
+    // Build environment variables for agent awareness
+    let allowed_paths = if caps.fs.is_empty() {
+        "(none)".to_string()
+    } else {
+        caps.fs
+            .iter()
+            .map(|c| format!("{}[{}]", c.resolved.display(), c.access))
+            .collect::<Vec<_>>()
+            .join(":")
+    };
 
-    // Inject secrets as environment variables
-    // These were loaded from the keystore before sandbox was applied
-    for secret in &loaded_secrets {
-        info!("Injecting secret as ${}", secret.env_var);
-        cmd.env(&secret.env_var, secret.value.as_str());
+    let blocked_paths = config::get_sensitive_paths().join(":");
+
+    let nono_context = format!(
+        "You are running inside the nono sandbox (v{}). \
+If you see 'Operation not permitted', 'Permission denied', or EPERM errors on file operations, \
+this is nono blocking access, NOT macOS TCC or filesystem permissions. \
+Blocked sensitive paths: ~/.ssh, ~/.aws, ~/.gnupg, ~/.kube, ~/.docker, shell configs. \
+Allowed paths: {}. Network: {}. \
+To check why a specific path is blocked, run: nono why <path>. \
+To request access, ask the user to re-run nono with --read/--write/--allow flags.",
+        env!("CARGO_PKG_VERSION"),
+        if caps.fs.is_empty() {
+            "(none)".to_string()
+        } else {
+            caps.fs
+                .iter()
+                .map(|c| c.resolved.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
+        if caps.net_block { "blocked" } else { "allowed" }
+    );
+
+    cmd.env("NONO_ACTIVE", "1")
+        .env("NONO_ALLOWED", &allowed_paths)
+        .env(
+            "NONO_NET",
+            if caps.net_block { "blocked" } else { "allowed" },
+        )
+        .env("NONO_BLOCKED", &blocked_paths)
+        .env(
+            "NONO_HELP",
+            "To request access, ask user to re-run nono with: --read <path>, --write <path>, --allow <path> for directories; --read-file, --write-file, --allow-file for single files",
+        )
+        .env("NONO_CONTEXT", &nono_context);
+
+    if let Some(cap_file) = cap_file {
+        cmd.env("NONO_CAP_FILE", cap_file);
     }
-
-    let err = cmd.exec();
-
-    // exec() only returns if there's an error
-    // Note: loaded_secrets will be dropped here, zeroizing the secret values
-    Err(NonoError::CommandExecution(err))
 }
 
 #[cfg(test)]

@@ -54,6 +54,19 @@ pub enum Commands {
 ")]
     Run(Box<RunArgs>),
 
+    /// Start an interactive shell inside the sandbox
+    #[command(after_help = "EXAMPLES:
+    # Start a shell with read/write access to current directory
+    nono shell --allow .
+
+    # Use a named profile
+    nono shell --profile claude-code
+
+    # Override shell binary
+    nono shell --allow . --shell /bin/zsh
+")]
+    Shell(ShellArgs),
+
     /// Check why a path or network operation would be allowed or denied
     #[command(after_help = "EXAMPLES:
     # Check if ~/.ssh is readable (sensitive path check)
@@ -90,8 +103,8 @@ pub enum Commands {
     Setup(SetupArgs),
 }
 
-#[derive(Parser, Debug)]
-pub struct RunArgs {
+#[derive(Parser, Debug, Clone)]
+pub struct SandboxArgs {
     // === Directory permissions (recursive) ===
     /// Directories to allow read+write access (recursive).
     /// Combines full read and write permissions (see --read and --write for details).
@@ -175,10 +188,26 @@ pub struct RunArgs {
     /// Dry run - show what would be sandboxed without executing
     #[arg(long)]
     pub dry_run: bool,
+}
+
+#[derive(Parser, Debug)]
+pub struct RunArgs {
+    #[command(flatten)]
+    pub sandbox: SandboxArgs,
 
     /// Command to run inside the sandbox
     #[arg(required = true)]
     pub command: Vec<String>,
+}
+
+#[derive(Parser, Debug)]
+pub struct ShellArgs {
+    #[command(flatten)]
+    pub sandbox: SandboxArgs,
+
+    /// Shell to execute (defaults to $SHELL or /bin/sh)
+    #[arg(long, value_name = "SHELL")]
+    pub shell: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -289,7 +318,7 @@ mod tests {
         let cli = Cli::parse_from(["nono", "run", "--allow", ".", "echo", "hello"]);
         match cli.command {
             Commands::Run(args) => {
-                assert_eq!(args.allow.len(), 1);
+                assert_eq!(args.sandbox.allow.len(), 1);
                 assert_eq!(args.command, vec!["echo", "hello"]);
             }
             _ => panic!("Expected Run command"),
@@ -301,7 +330,7 @@ mod tests {
         let cli = Cli::parse_from(["nono", "run", "--allow", ".", "--", "echo", "hello"]);
         match cli.command {
             Commands::Run(args) => {
-                assert_eq!(args.allow.len(), 1);
+                assert_eq!(args.sandbox.allow.len(), 1);
                 assert_eq!(args.command, vec!["echo", "hello"]);
             }
             _ => panic!("Expected Run command"),
@@ -323,8 +352,8 @@ mod tests {
         ]);
         match cli.command {
             Commands::Run(args) => {
-                assert_eq!(args.allow.len(), 2);
-                assert_eq!(args.read.len(), 1);
+                assert_eq!(args.sandbox.allow.len(), 2);
+                assert_eq!(args.sandbox.read.len(), 1);
             }
             _ => panic!("Expected Run command"),
         }
@@ -344,7 +373,7 @@ mod tests {
         match cli.command {
             Commands::Run(args) => {
                 assert_eq!(
-                    args.secrets,
+                    args.sandbox.secrets,
                     Some("openai_api_key,anthropic_api_key".to_string())
                 );
                 assert_eq!(args.command, vec!["claude"]);
@@ -366,8 +395,8 @@ mod tests {
         ]);
         match cli.command {
             Commands::Run(args) => {
-                assert_eq!(args.profile, Some("claude-code".to_string()));
-                assert_eq!(args.secrets, Some("openai_api_key".to_string()));
+                assert_eq!(args.sandbox.profile, Some("claude-code".to_string()));
+                assert_eq!(args.sandbox.secrets, Some("openai_api_key".to_string()));
                 assert_eq!(args.command, vec!["claude"]);
             }
             _ => panic!("Expected Run command"),
@@ -436,6 +465,18 @@ mod tests {
                 assert!(args.json);
             }
             _ => panic!("Expected Why command"),
+        }
+    }
+
+    #[test]
+    fn test_shell_basic() {
+        let cli = Cli::parse_from(["nono", "shell", "--allow", "."]);
+        match cli.command {
+            Commands::Shell(args) => {
+                assert_eq!(args.sandbox.allow.len(), 1);
+                assert!(args.shell.is_none());
+            }
+            _ => panic!("Expected Shell command"),
         }
     }
 }
