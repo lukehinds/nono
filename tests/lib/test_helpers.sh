@@ -59,7 +59,7 @@ run_test() {
         echo "       Expected exit code: $expected, got: $actual"
         echo "       Command: $*"
         if [[ -n "$output" ]]; then
-            echo "       Output: ${output:0:200}"
+            echo "       Output: ${output:0:500}"
         fi
         TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
@@ -94,7 +94,7 @@ expect_failure() {
         echo "       Expected failure, but got success (exit 0)"
         echo "       Command: $*"
         if [[ -n "$output" ]]; then
-            echo "       Output: ${output:0:200}"
+            echo "       Output: ${output:0:500}"
         fi
         TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
