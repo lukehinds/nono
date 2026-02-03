@@ -57,7 +57,7 @@ jobs:
           cd ../../..
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nono-${{ matrix.target }}
           path: nono-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
