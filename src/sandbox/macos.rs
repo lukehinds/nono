@@ -225,14 +225,12 @@ fn generate_profile(caps: &CapabilitySet) -> String {
         // This prevents granting ~ or ~/Library from disabling protection for ~/.ssh or ~/Library/Keychains.
         // User must explicitly grant --read ~/.ssh to access SSH keys.
         let user_granted = caps.fs.iter().any(|cap| {
-            let cap_path = cap.resolved.display().to_string();
-            // Normalize trailing slashes to prevent edge cases like "/foo/" vs "/foo"
-            let cap_path = cap_path.trim_end_matches('/');
-            let sensitive = path.trim_end_matches('/');
-            // Use path-component-aware comparison to prevent bypass attacks.
-            // String starts_with("/foo") would match "/foobar" - a security hole.
-            // Correct: exact match OR starts with path + "/" separator.
-            cap_path == sensitive || cap_path.starts_with(&format!("{}/", sensitive))
+            let sensitive_path = std::path::Path::new(&path);
+            // `Path::starts_with` performs a component-wise check, which is safer
+            // and more idiomatic than string manipulation for path comparisons.
+            // It correctly handles cases like `/a/b` vs `/a` and prevents
+            // bypasses like `/a-b` matching `/a`.
+            cap.resolved.starts_with(sensitive_path)
         });
 
         if !user_granted {

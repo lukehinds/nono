@@ -273,7 +273,11 @@ if [[ -d ~/.ssh ]]; then
         "$NONO_BIN" run --read "$COLLISION_DIR_SSH" --allow "$TMPDIR" -- ls ~/.ssh/
 
     if [[ -f ~/.ssh/id_rsa ]] || [[ -f ~/.ssh/id_ed25519 ]]; then
-        KEY_FILE=$(ls ~/.ssh/id_rsa 2>/dev/null || ls ~/.ssh/id_ed25519 2>/dev/null)
+        if [[ -f ~/.ssh/id_rsa ]]; then
+            KEY_FILE=~/.ssh/id_rsa
+        else
+            KEY_FILE=~/.ssh/id_ed25519
+        fi
         expect_failure "~/.sshfoo grant does NOT allow reading SSH keys" \
             "$NONO_BIN" run --read "$COLLISION_DIR_SSH" --allow "$TMPDIR" -- cat "$KEY_FILE"
     fi
