@@ -60,15 +60,12 @@ nono run --profile claude-code --allow . claude
 
 This command:
 - Grants read+write access to your current directory
-- Blocks access to sensitive paths (`~/.ssh`, `~/.aws`, `~/.gnupg`, etc.)
-- Allows network access (required for Claude API)
-- Grants access to `~/.claude` and `~/.claude.json` for Claude configuration
 
 #### Creating an Alias
 
 Choose ONE of the following options:
 
-**Option 1: Simple alias** (if you only need current directory access)
+**Option 1: Simple (limited) alias** (if you only need current directory access)
 
 ```bash
 alias sclaude='nono run --profile claude-code --allow . claude'
@@ -110,8 +107,6 @@ sclaude --dry-run
 # Verify Claude version (ensure consistent version)
 which claude
 ```
-
-
 
 ## Features
 
