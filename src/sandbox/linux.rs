@@ -108,7 +108,14 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
             match PathFd::new(path) {
                 Ok(path_fd) => {
                     debug!("Adding system read rule: {}", path_str);
-                    ruleset = ruleset.add_rule(PathBeneath::new(path_fd, read_access))?;
+                    // Some paths (device nodes, special filesystems) may fail with EBADFD
+                    // Skip them gracefully - they're optional for most programs
+                    match ruleset.add_rule(PathBeneath::new(path_fd, read_access)) {
+                        Ok(r) => ruleset = r,
+                        Err(e) => {
+                            debug!("Skipping system path {} (cannot add rule: {})", path_str, e);
+                        }
+                    }
                 }
                 Err(e) => {
                     debug!("Skipping system path {} (cannot open: {})", path_str, e);
@@ -126,7 +133,12 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
             match PathFd::new(&cwd) {
                 Ok(path_fd) => {
                     debug!("Adding cwd read rule: {}", cwd.display());
-                    ruleset = ruleset.add_rule(PathBeneath::new(path_fd, read_access))?;
+                    match ruleset.add_rule(PathBeneath::new(path_fd, read_access)) {
+                        Ok(r) => ruleset = r,
+                        Err(e) => {
+                            debug!("Skipping cwd {} (cannot add rule: {})", cwd.display(), e);
+                        }
+                    }
                 }
                 Err(e) => {
                     debug!("Skipping cwd {} (cannot open: {})", cwd.display(), e);
@@ -136,6 +148,8 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
     }
 
     // Add rules for each user-specified filesystem capability
+    // These MUST succeed - user explicitly requested these capabilities
+    // Failing silently would violate the principle of least surprise and fail-secure design
     for cap in &caps.fs {
         let access = access_to_landlock(cap.access, TARGET_ABI);
 
@@ -146,7 +160,15 @@ pub fn apply(caps: &CapabilitySet) -> Result<()> {
         );
 
         let path_fd = PathFd::new(&cap.resolved)?;
-        ruleset = ruleset.add_rule(PathBeneath::new(path_fd, access))?;
+        ruleset = ruleset
+            .add_rule(PathBeneath::new(path_fd, access))
+            .map_err(|e| {
+                NonoError::SandboxInit(format!(
+                    "Cannot add Landlock rule for {}: {} (filesystem may not support Landlock)",
+                    cap.resolved.display(),
+                    e
+                ))
+            })?;
     }
 
     // Apply the ruleset - THIS IS IRREVERSIBLE

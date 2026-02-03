@@ -126,6 +126,41 @@ impl CapabilitySet {
         self.fs.push(cap);
     }
 
+    /// Deduplicate filesystem capabilities by resolved path
+    /// For duplicates, keeps the highest access level (ReadWrite > Read/Write)
+    pub fn deduplicate(&mut self) {
+        use std::collections::HashMap;
+
+        // Group by (resolved path, is_file)
+        let mut seen: HashMap<(PathBuf, bool), usize> = HashMap::new();
+        let mut to_remove = Vec::new();
+
+        for (i, cap) in self.fs.iter().enumerate() {
+            let key = (cap.resolved.clone(), cap.is_file);
+            if let Some(&existing_idx) = seen.get(&key) {
+                // Duplicate found - decide which to keep
+                let existing = &self.fs[existing_idx];
+                if cap.access == FsAccess::ReadWrite && existing.access != FsAccess::ReadWrite {
+                    // New one has higher access, remove old
+                    to_remove.push(existing_idx);
+                    seen.insert(key, i);
+                } else {
+                    // Keep existing, remove new
+                    to_remove.push(i);
+                }
+            } else {
+                seen.insert(key, i);
+            }
+        }
+
+        // Remove duplicates in reverse order to maintain indices
+        to_remove.sort_unstable();
+        to_remove.reverse();
+        for idx in to_remove {
+            self.fs.remove(idx);
+        }
+    }
+
     /// Check if this set has any filesystem capabilities
     pub fn has_fs(&self) -> bool {
         !self.fs.is_empty()
@@ -174,6 +209,7 @@ impl CapabilitySet {
         caps.allowed_commands = args.allow_command.clone();
         caps.blocked_commands = args.block_command.clone();
 
+        caps.deduplicate();
         Ok(caps)
     }
 
@@ -301,6 +337,7 @@ impl CapabilitySet {
         caps.allowed_commands = args.allow_command.clone();
         caps.blocked_commands = args.block_command.clone();
 
+        caps.deduplicate();
         Ok(caps)
     }
 

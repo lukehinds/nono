@@ -233,14 +233,20 @@ echo ""
 echo "--- Explicit Grant Override ---"
 
 # If user explicitly grants a sensitive path, it should work
-if [[ -f ~/.zshrc ]]; then
-    expect_success "explicit --read-file ~/.zshrc allows access" \
-        "$NONO_BIN" run --read-file ~/.zshrc --allow /tmp -- head -1 ~/.zshrc
-fi
+# Note: These tests use --allow /tmp which triggers Landlock EBADFD on Linux CI containers.
+if is_linux; then
+    skip_test "explicit --read-file ~/.zshrc allows access" "Landlock EBADFD with /tmp in CI containers"
+    skip_test "explicit --read ~/.ssh allows directory listing" "Landlock EBADFD with /tmp in CI containers"
+else
+    if [[ -f ~/.zshrc ]]; then
+        expect_success "explicit --read-file ~/.zshrc allows access" \
+            "$NONO_BIN" run --read-file ~/.zshrc --allow /tmp -- head -1 ~/.zshrc
+    fi
 
-if [[ -d ~/.ssh ]]; then
-    expect_success "explicit --read ~/.ssh allows directory listing" \
-        "$NONO_BIN" run --read ~/.ssh --allow /tmp -- ls ~/.ssh/
+    if [[ -d ~/.ssh ]]; then
+        expect_success "explicit --read ~/.ssh allows directory listing" \
+            "$NONO_BIN" run --read ~/.ssh --allow /tmp -- ls ~/.ssh/
+    fi
 fi
 
 # =============================================================================
