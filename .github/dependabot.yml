@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  # 1. Update your GitHub Actions (e.g., checkout, setup-rust)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # 2. Update your Rust Toolchain (rust-toolchain.toml)
+  - package-ecosystem: "rust-toolchain"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # 3. Update your Rust Crates (Cargo.toml)
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"

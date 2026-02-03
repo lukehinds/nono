@@ -74,6 +74,13 @@
             "pages": [
               "usage/flags"
             ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/index",
+              "development/testing"
+            ]
           }
         ]
       }
