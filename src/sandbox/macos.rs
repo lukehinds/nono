@@ -616,23 +616,23 @@ mod tests {
 
         // Should allow process-info for SELF (needed for dyld, code signing, etc.)
         assert!(
-            profile.contains("(allow process-info* (target self))"),
+            profile.contains("(allow process-info* (target self))\n"),
             "Profile should allow process-info for self"
         );
 
         // Should deny process-info for OTHERS to prevent `ps aux` style attacks
         assert!(
-            profile.contains("(deny process-info* (target others))"),
+            profile.contains("(deny process-info* (target others))\n"),
             "Profile should deny process-info for other processes"
         );
 
         // Should allow specific process operations needed for execution
         assert!(
-            profile.contains("(allow process-exec*)"),
+            profile.contains("(allow process-exec*)\n"),
             "Profile should allow process execution"
         );
         assert!(
-            profile.contains("(allow process-fork)"),
+            profile.contains("(allow process-fork)\n"),
             "Profile should allow process forking"
         );
     }
