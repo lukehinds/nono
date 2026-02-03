@@ -4,31 +4,57 @@ This document describes the release process for nono, including signing procedur
 
 ## Quick Release Process
 
-1. **Bump version** in `Cargo.toml`
-2. **Update CHANGELOG.md** with new version section
-3. **Sign security lists** (if changed):
+### Automated (Recommended)
+
+Use the helper script to automate version bumping and changelog generation:
+
+```bash
+./scripts/prepare-release.sh
+```
+
+This will:
+- Calculate the next version based on commits
+- Update `Cargo.toml`
+- Generate `CHANGELOG.md`
+- Show you the next steps
+
+### Manual Process
+
+1. **Calculate next version** (see Changelog Generation below):
+   ```bash
+   git cliff --bumped-version
+   ```
+2. **Bump version** in `Cargo.toml` to the calculated version
+3. **Generate CHANGELOG.md**:
+   ```bash
+   git cliff --unreleased --tag v$(git cliff --bumped-version) --prepend CHANGELOG.md
+   ```
+
+### Continue Release
+
+4. **Sign security lists** (if changed):
    ```bash
    minisign -Sm data/security-lists.toml -s /path/to/release-key.key
    git add data/security-lists.toml.minisig
    ```
-4. **Commit and push**:
+5. **Commit and push**:
    ```bash
    git add Cargo.toml CHANGELOG.md
    git commit -m "Release vX.Y.Z"
    git push
    ```
-5. **Create and push tag**:
+6. **Create and push tag**:
    ```bash
    git tag vX.Y.Z
    git push origin vX.Y.Z
    ```
-6. **Wait for CI** - GitHub Actions will automatically:
+7. **Wait for CI** - GitHub Actions will automatically:
    - Build binaries (Linux x64, macOS Intel, macOS ARM)
    - Create draft GitHub release with checksums
    - Publish to crates.io (`nono-rs`)
    - Update Homebrew formula (`lukehinds/nono`)
 
-7. **Publish the release** - Go to GitHub releases and publish the draft
+8. **Publish the release** - Go to GitHub releases and publish the draft
 
 ## Distribution Channels
 
@@ -37,6 +63,52 @@ This document describes the release process for nono, including signing procedur
 | crates.io | `nono-rs` | `cargo install nono-rs` |
 | Homebrew | `lukehinds/nono` | `brew tap lukehinds/nono && brew install nono` |
 | GitHub Releases | - | Download binary from releases page |
+
+## Changelog Generation
+
+### Install git-cliff
+
+```bash
+# macOS
+brew install git-cliff
+
+# Or via cargo
+cargo install git-cliff
+```
+
+### Generate Changelog
+
+Before releasing, let git-cliff determine the next version:
+
+```bash
+# Step 1: Calculate the next version automatically
+git cliff --bumped-version
+# Output example: 0.2.2 (if commits are bug fixes/patches)
+# Output example: 0.3.0 (if commits include new features)
+# Output example: 1.0.0 (if commits have breaking changes with '!')
+
+# Step 2: Generate changelog for that version
+NEXT_VERSION=$(git cliff --bumped-version)
+git cliff --unreleased --tag v${NEXT_VERSION} --prepend CHANGELOG.md
+
+# Or do both in one command:
+git cliff --unreleased --tag v$(git cliff --bumped-version) --prepend CHANGELOG.md
+
+# Preview without writing
+git cliff --unreleased --tag v$(git cliff --bumped-version)
+```
+
+**How version bumping works:**
+- **PATCH** (0.2.1 → 0.2.2): Bug fixes, docs, refactors, tests, chores
+- **MINOR** (0.2.1 → 0.3.0): New features (`feat:` or `add:`)
+- **MAJOR** (0.2.1 → 1.0.0): Breaking changes (commits with `!` like `feat!:` or `fix!:`)
+
+The configuration in `cliff.toml` automatically:
+- Groups commits by type (Security, Added, Fixed, Changed, etc.)
+- Formats according to Keep a Changelog style
+- Generates comparison links at the bottom
+- Works with both conventional commits and regular commits
+- Calculates semantic version bumps based on commit types
 
 ## Prerequisites
 
@@ -49,6 +121,10 @@ brew install minisign  # macOS
 
 # Install GitHub CLI for releases
 brew install gh
+
+# Install git-cliff for changelog generation
+brew install git-cliff
+# or: cargo install git-cliff
 ```
 
 ### Signing Key Setup
