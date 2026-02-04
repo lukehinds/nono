@@ -121,11 +121,16 @@ pub fn print_dry_run(command: &[String], silent: bool) {
 /// Prompt the user to confirm sharing the current working directory.
 ///
 /// Returns `Ok(true)` if user confirms, `Ok(false)` if user declines.
-/// Returns `Err(CwdPromptRequired)` if stdin is not a TTY.
+/// Returns `Ok(false)` with a hint if stdin is not a TTY.
 pub fn prompt_cwd_sharing(cwd: &Path, access: &FsAccess) -> Result<bool> {
     let stdin = std::io::stdin();
     if !stdin.is_terminal() {
-        return Err(NonoError::CwdPromptRequired);
+        eprintln!(
+            "{}",
+            "Skipping CWD prompt (non-interactive). Use --allow-cwd to include working directory."
+                .truecolor(150, 150, 150),
+        );
+        return Ok(false);
     }
 
     let access_str = format!("{}", access);

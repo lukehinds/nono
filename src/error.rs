@@ -97,9 +97,6 @@ pub enum NonoError {
         attempted: u64,
     },
 
-    #[error("CWD sharing declined. Use --allow-cwd or specify paths with --allow/--read")]
-    UserDeclinedCwd,
-
     #[error("Cannot prompt for CWD sharing in silent/non-interactive mode. Use --allow-cwd")]
     CwdPromptRequired,
 

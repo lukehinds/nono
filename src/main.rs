@@ -260,7 +260,7 @@ fn run_sandbox(args: RunArgs, silent: bool) -> Result<()> {
                     let cap = FsCapability::new_dir(workdir.clone(), access)?;
                     caps.add_fs(cap);
                 } else {
-                    return Err(NonoError::UserDeclinedCwd);
+                    info!("User declined CWD sharing. Continuing without automatic CWD access.");
                 }
             }
             caps.deduplicate();

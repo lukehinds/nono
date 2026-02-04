@@ -46,7 +46,7 @@ run_test() {
     TESTS_RUN=$((TESTS_RUN + 1))
 
     set +e
-    output=$("$@" 2>&1)
+    output=$("$@" </dev/null 2>&1)
     actual=$?
     set -e
 
@@ -81,7 +81,7 @@ expect_failure() {
     TESTS_RUN=$((TESTS_RUN + 1))
 
     set +e
-    output=$("$@" 2>&1)
+    output=$("$@" </dev/null 2>&1)
     actual=$?
     set -e
 
@@ -111,7 +111,7 @@ expect_output_contains() {
     TESTS_RUN=$((TESTS_RUN + 1))
 
     set +e
-    output=$("$@" 2>&1)
+    output=$("$@" </dev/null 2>&1)
     exit_code=$?
     set -e
 
@@ -140,7 +140,7 @@ expect_output_not_contains() {
     TESTS_RUN=$((TESTS_RUN + 1))
 
     set +e
-    output=$("$@" 2>&1)
+    output=$("$@" </dev/null 2>&1)
     set -e
 
     if echo "$output" | grep -q "$unexpected_str"; then
