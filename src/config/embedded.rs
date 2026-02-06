@@ -7,7 +7,8 @@
 use super::security_lists::SecurityLists;
 use crate::error::{NonoError, Result};
 use crate::profile::{
-    FilesystemConfig, NetworkConfig, Profile, ProfileMeta, SecretsConfig, WorkdirConfig,
+    FilesystemConfig, HooksConfig, NetworkConfig, Profile, ProfileMeta, SecretsConfig,
+    WorkdirConfig,
 };
 
 /// Embedded security lists (compiled into binary by build.rs)
@@ -74,6 +75,10 @@ fn parse_profile_toml(content: &str) -> Result<Profile> {
         secrets: SecretsConfig,
         #[serde(default)]
         workdir: WorkdirConfig,
+        #[serde(default)]
+        hooks: HooksConfig,
+        #[serde(default)]
+        interactive: bool,
     }
 
     #[derive(serde::Deserialize)]
@@ -143,6 +148,8 @@ fn parse_profile_toml(content: &str) -> Result<Profile> {
         network: toml_profile.network,
         secrets: toml_profile.secrets,
         workdir: toml_profile.workdir,
+        hooks: toml_profile.hooks,
+        interactive: toml_profile.interactive,
     })
 }
 
