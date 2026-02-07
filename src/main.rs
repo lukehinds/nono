@@ -222,8 +222,6 @@ fn run_sandbox(args: SandboxArgs, command: Vec<String>, silent: bool) -> Result<
 
 /// Run an interactive shell inside the sandbox
 fn run_shell(args: ShellArgs, silent: bool) -> Result<()> {
-    let prepared = prepare_sandbox(&args.sandbox, silent)?;
-
     let shell_path = args
         .shell
         .or_else(|| {
@@ -233,6 +231,21 @@ fn run_shell(args: ShellArgs, silent: bool) -> Result<()> {
                 .map(std::path::PathBuf::from)
         })
         .unwrap_or_else(|| std::path::PathBuf::from("/bin/sh"));
+
+    // Dry run mode - just show what would happen
+    if args.sandbox.dry_run {
+        let prepared = prepare_sandbox(&args.sandbox, silent)?;
+        if !prepared.secrets.is_empty() && !silent {
+            eprintln!(
+                "  Would inject {} secret(s) as environment variables",
+                prepared.secrets.len()
+            );
+        }
+        output::print_dry_run(shell_path.as_os_str(), &[], silent);
+        return Ok(());
+    }
+
+    let prepared = prepare_sandbox(&args.sandbox, silent)?;
 
     if !silent {
         eprintln!(
