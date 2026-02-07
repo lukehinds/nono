@@ -50,7 +50,7 @@ fn run() -> Result<()> {
         Commands::Shell(args) => {
             // Print banner for shell command (unless silent)
             output::print_banner(cli.silent);
-            run_shell(args, cli.silent)
+            run_shell(*args, cli.silent)
         }
         Commands::Why(args) => {
             // Why doesn't print banner (designed for programmatic use by agents)
@@ -205,7 +205,12 @@ fn run_shell(args: ShellArgs, silent: bool) -> Result<()> {
 
     let shell_path = args
         .shell
-        .or_else(|| std::env::var("SHELL").ok().map(std::path::PathBuf::from))
+        .or_else(|| {
+            std::env::var("SHELL")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .map(std::path::PathBuf::from)
+        })
         .unwrap_or_else(|| std::path::PathBuf::from("/bin/sh"));
 
     if !silent {
@@ -270,7 +275,9 @@ fn execute_sandboxed(
 
     let mut cmd = Command::new(&program);
     cmd.args(&cmd_args);
-    apply_nono_env(&mut cmd, &caps, cap_file.as_deref());
+    if let Some(cap_file) = cap_file.as_deref() {
+        cmd.env("NONO_CAP_FILE", cap_file);
+    }
 
     // Inject secrets as environment variables
     // These were loaded from the keystore before sandbox was applied
@@ -439,59 +446,6 @@ fn write_capability_state_file(caps: &CapabilitySet, silent: bool) -> Option<std
         None
     } else {
         Some(cap_file)
-    }
-}
-
-fn apply_nono_env(cmd: &mut Command, caps: &CapabilitySet, cap_file: Option<&std::path::Path>) {
-    // Build environment variables for agent awareness
-    let allowed_paths = if caps.fs.is_empty() {
-        "(none)".to_string()
-    } else {
-        caps.fs
-            .iter()
-            .map(|c| format!("{}[{}]", c.resolved.display(), c.access))
-            .collect::<Vec<_>>()
-            .join(":")
-    };
-
-    let blocked_paths = config::get_sensitive_paths().join(":");
-
-    let nono_context = format!(
-        "You are running inside the nono sandbox (v{}). \
-If you see 'Operation not permitted', 'Permission denied', or EPERM errors on file operations, \
-this is nono blocking access, NOT macOS TCC or filesystem permissions. \
-Blocked sensitive paths: ~/.ssh, ~/.aws, ~/.gnupg, ~/.kube, ~/.docker, shell configs. \
-Allowed paths: {}. Network: {}. \
-To check why a specific path is blocked, run: nono why <path>. \
-To request access, ask the user to re-run nono with --read/--write/--allow flags.",
-        env!("CARGO_PKG_VERSION"),
-        if caps.fs.is_empty() {
-            "(none)".to_string()
-        } else {
-            caps.fs
-                .iter()
-                .map(|c| c.resolved.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
-        },
-        if caps.net_block { "blocked" } else { "allowed" }
-    );
-
-    cmd.env("NONO_ACTIVE", "1")
-        .env("NONO_ALLOWED", &allowed_paths)
-        .env(
-            "NONO_NET",
-            if caps.net_block { "blocked" } else { "allowed" },
-        )
-        .env("NONO_BLOCKED", &blocked_paths)
-        .env(
-            "NONO_HELP",
-            "To request access, ask user to re-run nono with: --read <path>, --write <path>, --allow <path> for directories; --read-file, --write-file, --allow-file for single files",
-        )
-        .env("NONO_CONTEXT", &nono_context);
-
-    if let Some(cap_file) = cap_file {
-        cmd.env("NONO_CAP_FILE", cap_file);
     }
 }
 

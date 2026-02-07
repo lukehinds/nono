@@ -128,6 +128,17 @@ nono run --write-file ./output.log -- command
 
 Block all network access. Network is **allowed by default**.
 
+```bash
+# Block network for a build process that should be offline
+nono run --allow . --net-block -- cargo build
+```
+
+<Note>
+  Network access is currently binary - either all outbound connections are allowed, or all are blocked. There is no per-host or per-domain filtering.
+
+  Granular network filtering (e.g., allowing only specific domains like `api.anthropic.com`) is a desired feature but not yet supported. Apple Seatbelt has technical limitations that make per-host filtering challenging and would require significant experimentation to implement correctly. This feature may be added in a future release.
+</Note>
+
 ## `nono shell` Options
 
 `nono shell` supports the same permission, profile, secrets, and dry-run flags as `nono run`, plus:
@@ -139,17 +150,6 @@ Override the shell binary.
 ```bash
 nono shell --allow . --shell /bin/zsh
 ```
-
-```bash
-# Block network for a build process that should be offline
-nono run --allow . --net-block -- cargo build
-```
-
-<Note>
-  Network access is currently binary - either all outbound connections are allowed, or all are blocked. There is no per-host or per-domain filtering.
-
-  Granular network filtering (e.g., allowing only specific domains like `api.anthropic.com`) is a desired feature but not yet supported. Apple Seatbelt has technical limitations that make per-host filtering challenging and would require significant experimentation to implement correctly. This feature may be added in a future release.
-</Note>
 
 ### Command Blocking
 
