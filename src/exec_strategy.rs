@@ -22,10 +22,27 @@ use std::io::{BufRead, BufReader, Write};
 use std::mem::ManuallyDrop;
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::process::CommandExt;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
+
+/// Resolve a program name to its absolute path.
+///
+/// This should be called BEFORE the sandbox is applied to ensure the program
+/// can be found even if its directory is not in the sandbox's allowed paths.
+///
+/// # Errors
+/// Returns an error if the program cannot be found in PATH or as a valid path.
+pub fn resolve_program(program: &str) -> Result<PathBuf> {
+    which::which(program).map_err(|e| {
+        NonoError::CommandExecution(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("{}: {}", program, e),
+        ))
+    })
+}
 
 /// Maximum threads allowed when keyring backend is active.
 /// Main thread (1) + up to 3 keyring threads for D-Bus/Security.framework.
@@ -91,6 +108,10 @@ pub enum ExecStrategy {
 pub struct ExecConfig<'a> {
     /// The command to execute (program + args).
     pub command: &'a [String],
+    /// Pre-resolved absolute path to the program.
+    /// This is resolved BEFORE the sandbox is applied to ensure the program
+    /// can be found even if its directory is not in the sandbox's allowed paths.
+    pub resolved_program: &'a std::path::Path,
     /// Capabilities for the sandbox.
     pub caps: &'a CapabilitySet,
     /// Environment variables to set.
@@ -108,12 +129,15 @@ pub struct ExecConfig<'a> {
 /// This is the original behavior: apply sandbox, then exec into the command.
 /// nono ceases to exist after exec() succeeds.
 pub fn execute_direct(config: &ExecConfig<'_>) -> Result<()> {
-    let program = &config.command[0];
     let cmd_args = &config.command[1..];
 
-    info!("Executing (direct): {} {:?}", program, cmd_args);
+    info!(
+        "Executing (direct): {} {:?}",
+        config.resolved_program.display(),
+        cmd_args
+    );
 
-    let mut cmd = Command::new(program);
+    let mut cmd = Command::new(config.resolved_program);
     cmd.args(cmd_args).env("NONO_CAP_FILE", config.cap_file);
 
     for (key, value) in &config.env_vars {
@@ -159,20 +183,21 @@ pub fn execute_direct(config: &ExecConfig<'_>) -> Result<()> {
 ///
 /// # Process Flow
 ///
-/// 1. Sandbox is already applied (caller's responsibility)
-/// 2. Prepare all data for exec in parent (path resolution, CString conversion)
-/// 3. Apply platform-specific ptrace hardening
-/// 4. Verify threading context allows fork
-/// 5. Create pipes for output interception
-/// 6. Fork into parent and child
-/// 7. Child: close FDs, redirect output to pipes, exec using prepared data
-/// 8. Parent: read pipes, inject diagnostic on permission errors, wait for exit
+/// 1. Program path already resolved by caller (before sandbox applied)
+/// 2. Sandbox is already applied (caller's responsibility)
+/// 3. Prepare all data for exec in parent (CString conversion)
+/// 4. Apply platform-specific ptrace hardening
+/// 5. Verify threading context allows fork
+/// 6. Create pipes for output interception
+/// 7. Fork into parent and child
+/// 8. Child: close FDs, redirect output to pipes, exec using prepared data
+/// 9. Parent: read pipes, inject diagnostic on permission errors, wait for exit
 ///
 /// # Async-Signal-Safety
 ///
 /// After fork() in a potentially multi-threaded process, the child can only safely
 /// call async-signal-safe functions until exec(). This implementation:
-/// - Resolves the program path in the parent using `which`
+/// - Uses the pre-resolved program path from ExecConfig
 /// - Converts all strings to CString in the parent
 /// - Uses only raw libc calls in the child (no Rust allocations)
 /// - Exits with `libc::_exit()` on error (not `std::process::exit()` or panic)
@@ -182,13 +207,10 @@ pub fn execute_monitor(config: &ExecConfig<'_>) -> Result<i32> {
 
     info!("Executing (monitor): {} {:?}", program, cmd_args);
 
-    // Resolve program to absolute path (cannot search PATH after fork)
-    let program_path = which::which(program).map_err(|e| {
-        NonoError::CommandExecution(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!("{}: {}", program, e),
-        ))
-    })?;
+    // Use pre-resolved program path (resolved before sandbox was applied)
+    // This ensures the program can be found even if its directory is not
+    // in the sandbox's allowed paths.
+    let program_path = config.resolved_program;
 
     // Convert program path to CString for execve
     let program_c = CString::new(program_path.to_string_lossy().as_bytes())

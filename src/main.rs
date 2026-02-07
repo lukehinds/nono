@@ -297,6 +297,11 @@ fn execute_sandboxed(
         return Err(NonoError::NoCommand);
     }
 
+    // Resolve the program path BEFORE applying the sandbox.
+    // This ensures the program can be found even if its directory
+    // is not in the sandbox's allowed paths.
+    let resolved_program = exec_strategy::resolve_program(&command[0])?;
+
     // Apply the sandbox
     output::print_applying_sandbox(silent);
     sandbox::apply(caps)?;
@@ -337,6 +342,7 @@ fn execute_sandboxed(
     // Create execution config
     let config = exec_strategy::ExecConfig {
         command: &command,
+        resolved_program: &resolved_program,
         caps,
         env_vars,
         cap_file: &cap_file_path,
