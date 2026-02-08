@@ -334,6 +334,9 @@ fn extract_path_from_syscall(line: &str, syscall: &str) -> Option<String> {
 
 /// Unescape C-style escape sequences from strace output.
 /// Handles: \n \t \r \\ \" \0 \xNN (hex) \NNN (octal)
+///
+/// Invalid or incomplete escape sequences are passed through literally
+/// to avoid data loss.
 #[cfg(target_os = "linux")]
 fn unescape_strace_string(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
@@ -363,45 +366,54 @@ fn unescape_strace_string(s: &str) -> String {
                     result.push('"');
                 }
                 Some('0') => {
-                    chars.next();
-                    // Could be \0 (null) or start of octal \0NN
-                    if chars.peek().is_some_and(|c| c.is_ascii_digit()) {
+                    chars.next(); // consume '0'
+                                  // Could be \0 (null) or start of octal \0NN
+                    if chars.peek().is_some_and(|c| ('0'..='7').contains(c)) {
                         // Octal escape starting with 0
                         let mut octal = String::from("0");
-                        while octal.len() < 3 && chars.peek().is_some_and(|c| c.is_ascii_digit()) {
-                            octal.push(chars.next().unwrap_or('0'));
+                        while octal.len() < 3
+                            && chars.peek().is_some_and(|c| ('0'..='7').contains(c))
+                        {
+                            octal.push(chars.next().unwrap());
                         }
-                        if let Ok(val) = u8::from_str_radix(&octal, 8) {
-                            result.push(val as char);
-                        }
+                        // from_str_radix is safe here since we validated digits are 0-7
+                        let val = u8::from_str_radix(&octal, 8).unwrap();
+                        result.push(val as char);
                     } else {
                         result.push('\0');
                     }
                 }
                 Some('x') => {
-                    chars.next();
-                    // Hex escape \xNN
+                    chars.next(); // consume 'x'
+                                  // Hex escape \xNN - must have exactly 2 hex digits
                     let mut hex = String::new();
                     for _ in 0..2 {
                         if chars.peek().is_some_and(|c| c.is_ascii_hexdigit()) {
-                            hex.push(chars.next().unwrap_or('0'));
+                            hex.push(chars.next().unwrap());
+                        } else {
+                            break;
                         }
                     }
                     if hex.len() == 2 {
-                        if let Ok(val) = u8::from_str_radix(&hex, 16) {
-                            result.push(val as char);
-                        }
+                        // from_str_radix is safe here since we validated hex digits
+                        let val = u8::from_str_radix(&hex, 16).unwrap();
+                        result.push(val as char);
+                    } else {
+                        // Invalid/incomplete hex escape - pass through literally
+                        result.push('\\');
+                        result.push('x');
+                        result.push_str(&hex);
                     }
                 }
-                Some(c) if c.is_ascii_digit() => {
-                    // Octal escape \NNN (1-3 digits)
+                Some(c) if ('1'..='7').contains(c) => {
+                    // Octal escape \NNN (1-3 digits, starting with 1-7)
                     let mut octal = String::new();
-                    while octal.len() < 3 && chars.peek().is_some_and(|c| c.is_ascii_digit()) {
-                        octal.push(chars.next().unwrap_or('0'));
+                    while octal.len() < 3 && chars.peek().is_some_and(|c| ('0'..='7').contains(c)) {
+                        octal.push(chars.next().unwrap());
                     }
-                    if let Ok(val) = u8::from_str_radix(&octal, 8) {
-                        result.push(val as char);
-                    }
+                    // from_str_radix is safe here since we validated digits are 0-7
+                    let val = u8::from_str_radix(&octal, 8).unwrap();
+                    result.push(val as char);
                 }
                 _ => {
                     // Unknown escape, keep as-is
@@ -693,5 +705,34 @@ mod tests {
     fn test_unescape_null() {
         // \0 alone is null
         assert_eq!(unescape_strace_string(r#"hello\0world"#), "hello\0world");
+    }
+
+    #[test]
+    fn test_unescape_incomplete_hex() {
+        // Incomplete hex escape should be passed through literally
+        assert_eq!(unescape_strace_string(r#"\x1"#), r#"\x1"#);
+        assert_eq!(unescape_strace_string(r#"path\x1end"#), r#"path\x1end"#);
+    }
+
+    #[test]
+    fn test_unescape_invalid_hex() {
+        // Invalid hex digits should be passed through literally
+        assert_eq!(unescape_strace_string(r#"\xZZ"#), r#"\xZZ"#);
+        assert_eq!(unescape_strace_string(r#"\xGH"#), r#"\xGH"#);
+    }
+
+    #[test]
+    fn test_unescape_invalid_octal() {
+        // 8 and 9 are not valid octal digits
+        // \18 should parse \1 as octal (= 0x01) and leave '8' as literal
+        assert_eq!(unescape_strace_string(r#"\18"#), "\x018");
+        // \19 should parse \1 as octal (= 0x01) and leave '9' as literal
+        assert_eq!(unescape_strace_string(r#"\19"#), "\x019");
+    }
+
+    #[test]
+    fn test_unescape_trailing_backslash() {
+        // Trailing backslash should be passed through
+        assert_eq!(unescape_strace_string(r#"hello\"#), r#"hello\"#);
     }
 }
