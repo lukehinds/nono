@@ -96,7 +96,7 @@ nono run --allow . -- my-agent
     <th>Repository</th>
   </tr>
   <tr>
-    <td><strong>Claude Code</strong><br/>claw-wrap</td>
+    <td><strong>claw-wrap</strong></td>
     <td><a href="https://github.com/dedene/claw-wrap">GitHub</a></td>
   </tr>
 </table>
