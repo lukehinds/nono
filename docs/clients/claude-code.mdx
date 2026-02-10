@@ -160,14 +160,7 @@ Claude Code installs a VS Code extension on startup. The built-in profile alread
 
 ### Git Configuration
 
-Claude Code reads git configuration for repository operations. Grant read access to your global git files:
-
-```bash
-nono run --profile claude-code \
-  --read-file ~/.gitconfig \
-  --read-file ~/.gitignore_global \
-  -- claude
-```
+Claude Code reads git configuration for repository operations. The built-in profile already grants read access to `~/.gitconfig` and `~/.gitignore_global`. No additional flags are needed for git operations.
 
 ## Overriding Profile Settings
 
