@@ -50,13 +50,24 @@ fn claude_code() -> Profile {
         },
         filesystem: FilesystemConfig {
             // ~/.claude: agent state, debug logs, projects, etc.
-            allow: vec!["$HOME/.claude".to_string()],
+            // ~/.vscode: VS Code extensions directory
+            // ~/Library/Application Support/Code: VS Code app data (required for extension install)
+            allow: vec![
+                "$HOME/.claude".to_string(),
+                "$HOME/.vscode".to_string(),
+                "$HOME/Library/Application Support/Code".to_string(),
+            ],
             read: vec![],
             write: vec![],
             // ~/.claude.json: agent writes settings/state here
             allow_file: vec!["$HOME/.claude.json".to_string()],
             // macOS Keychain: OAuth token read for authentication
-            read_file: vec!["$HOME/Library/Keychains/login.keychain-db".to_string()],
+            // ~/.gitconfig, ~/.gitignore_global: git configuration for repository operations
+            read_file: vec![
+                "$HOME/Library/Keychains/login.keychain-db".to_string(),
+                "$HOME/.gitconfig".to_string(),
+                "$HOME/.gitignore_global".to_string(),
+            ],
             write_file: vec![],
         },
         network: NetworkConfig { block: false },

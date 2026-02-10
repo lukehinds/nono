@@ -324,6 +324,7 @@ system = [
     "/private",
     "/tmp",
     "/System/Volumes",
+    "/System/Cryptexes",
     "/Applications",
     "/cores",
     "/opt",

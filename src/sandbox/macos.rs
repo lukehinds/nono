@@ -111,10 +111,6 @@ fn generate_profile(caps: &CapabilitySet) -> String {
 
     // Process info: allow self-inspection (needed for dyld, code signing, etc.)
     // but deny inspecting OTHER processes (blocks `ps aux` style info leaks)
-    // Luke: if target others gets noisy we can narrow it down to the big three:
-    // (allow process-info-pidinfo (target self))
-    // (allow process-info-codesignature (target self))
-    // (allow process-info-setcontrol (target self))
     profile.push_str("(allow process-info* (target self))\n");
     profile.push_str("(deny process-info* (target others))\n");
 

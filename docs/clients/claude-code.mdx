@@ -29,6 +29,8 @@ The built-in profile provides:
 - **Read+write access** to the current working directory
 - **Read+write access** to `~/.claude` (agent state, debug logs, project config)
 - **Read+write access** to `~/.claude.json` (settings file)
+- **Read+write access** to `~/.vscode` (VS Code extensions directory)
+- **Read+write access** to `~/Library/Application Support/Code` (VS Code app data, macOS)
 - **Network access** enabled (required for Anthropic API)
 - **Interactive mode** enabled (preserves TTY for Claude's terminal UI)
 - **Automatic hook installation** for sandbox-aware error handling
@@ -113,6 +115,52 @@ If you want to prevent any outbound connections (e.g., for reviewing local code 
 ```bash
 nono run --profile claude-code --net-block -- claude
 ```
+
+## Enabling LSPs, Linters, and Dev Tools
+
+Claude Code's LSP plugins (pyright, rust-analyzer, etc.) spawn language servers as child processes. These spawns use `posix_spawnp()` which searches your `PATH` for the binary. If any `PATH` directory is unreadable to the sandbox, `posix_spawnp()` receives `EPERM` from the kernel and stops searching immediately (unlike `ENOENT`, which continues to the next entry).
+
+nono's built-in system paths cover standard directories (`/usr/bin`, `/opt`, etc.), but version managers and dev tools install binaries under `~/` which requires explicit read access.
+
+Common home-directory `PATH` entries that need read access:
+
+| Tool | Path |
+|------|------|
+| Rust / cargo | `~/.cargo/bin` |
+| Go | `~/go/bin` |
+| Python / pyenv | `~/.pyenv/shims`, `~/.pyenv/bin` |
+| Node / fnm | `~/.local/share/fnm`, `~/.local/state/fnm_multishells` |
+| Node / nvm | `~/.nvm` |
+| Haskell / ghcup | `~/.ghcup/bin` |
+| Ruby / rbenv | `~/.rbenv/shims`, `~/.rbenv/bin` |
+| Local binaries | `~/.local/bin` |
+
+**Diagnose which paths are needed** by listing your PATH:
+
+```bash
+echo "$PATH" | tr ':' '\n'
+```
+
+Grant read access to any `~/` entry that appears before the directory containing your LSP binary:
+
+```bash
+nono run --profile claude-code \
+  --read ~/.cargo/bin \
+  --read ~/.local/bin \
+  -- claude
+```
+
+<Note>
+You only need `--read` (not `--allow`) for these directories. This permits PATH lookup without granting write access.
+</Note>
+
+### VS Code Extension
+
+Claude Code installs a VS Code extension on startup. The built-in profile already grants write access to both `~/.vscode` and `~/Library/Application Support/Code` (macOS). No additional flags are needed for VS Code extension installation.
+
+### Git Configuration
+
+Claude Code reads git configuration for repository operations. The built-in profile already grants read access to `~/.gitconfig` and `~/.gitignore_global`. No additional flags are needed for git operations.
 
 ## Overriding Profile Settings
 
