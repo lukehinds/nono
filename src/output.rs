@@ -3,21 +3,13 @@
 use crate::capability::{CapabilitySet, FsAccess};
 use crate::error::{NonoError, Result};
 use colored::Colorize;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 use std::ffi::{OsStr, OsString};
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::Path;
 
 /// Hedgehog puns for the banner
-const QUOTES: &[&str] = &[
-    "Trust in the hog",
-    "Curled up and secure",
-    "The opposite of yolo",
-    "Prickly about permissions",
-    "No hoggin' resources",
-    "All your base are belong to us",
-    "Rolling with restrictions",
-];
+const QUOTES: &[&str] = &["Trust in the nono", "The opposite of yolo"];
 
 /// Print the nono banner with hedgehog mascot
 pub fn print_banner(silent: bool) {
@@ -25,9 +17,8 @@ pub fn print_banner(silent: bool) {
         return;
     }
 
-    let quote = QUOTES
-        .choose(&mut rand::thread_rng())
-        .unwrap_or(&"The opposite of yolo");
+    let mut rng = rand::rng();
+    let quote = QUOTES.choose(&mut rng).unwrap_or(&"The opposite of yolo");
 
     let version = env!("CARGO_PKG_VERSION");
 
