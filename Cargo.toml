@@ -49,7 +49,7 @@ colored = "3"
 rand = "0.10"
 
 # Path resolution (for async-signal-safe exec)
-which = "7"
+which = "8"
 
 # Platform-specific
 [target.'cfg(target_os = "linux")'.dependencies]
