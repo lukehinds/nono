@@ -46,7 +46,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Output styling
 colored = "3"
-rand = "0.8"
+rand = "0.10"
 
 # Path resolution (for async-signal-safe exec)
 which = "7"
