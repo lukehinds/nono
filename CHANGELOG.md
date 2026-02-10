@@ -5,6 +5,111 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-02-10
+
+### Changed
+
+- Update README.md
+- Update project name in README.md
+- Bump nix from 0.29.0 to 0.31.1
+- Fix claude code OAuth2 refresh by adding keychain read access
+
+Bumps [nix](https://github.com/nix-rust/nix) from 0.29.0 to 0.31.1.
+- [Changelog](https://github.com/nix-rust/nix/blob/master/CHANGELOG.md)
+- [Commits](https://github.com/nix-rust/nix/compare/v0.29.0...v0.31.1)
+
+---
+updated-dependencies:
+- dependency-name: nix
+  dependency-version: 0.31.1
+  dependency-type: direct:production
+  update-type: version-update:semver-minor
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #39 from lukehinds/dependabot/cargo/nix-0.31.1
+
+Bump nix from 0.29.0 to 0.31.1
+- Bump rand from 0.8.5 to 0.10.0
+
+Bumps [rand](https://github.com/rust-random/rand) from 0.8.5 to 0.10.0.
+- [Release notes](https://github.com/rust-random/rand/releases)
+- [Changelog](https://github.com/rust-random/rand/blob/master/CHANGELOG.md)
+- [Commits](https://github.com/rust-random/rand/compare/0.8.5...0.10.0)
+
+---
+updated-dependencies:
+- dependency-name: rand
+  dependency-version: 0.10.0
+  dependency-type: direct:production
+  update-type: version-update:semver-minor
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #71 from lukehinds/dependabot/cargo/rand-0.10.0
+
+Bump rand from 0.8.5 to 0.10.0
+- Bump anyhow from 1.0.100 to 1.0.101
+
+Bumps [anyhow](https://github.com/dtolnay/anyhow) from 1.0.100 to 1.0.101.
+- [Release notes](https://github.com/dtolnay/anyhow/releases)
+- [Commits](https://github.com/dtolnay/anyhow/compare/1.0.100...1.0.101)
+
+---
+updated-dependencies:
+- dependency-name: anyhow
+  dependency-version: 1.0.101
+  dependency-type: direct:production
+  update-type: version-update:semver-patch
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #72 from lukehinds/dependabot/cargo/anyhow-1.0.101
+
+Bump anyhow from 1.0.100 to 1.0.101
+- Claude requires read access on keychain db for oauth2 refresh
+- Merge pull request #77 from lukehinds/claude-login
+
+Claude requires read access on keychain db for oauth2 refresh
+- Fix rand 0.10.0 API compatibility in output.rs
+
+The rand crate 0.10.0 renamed SliceRandom to IndexedRandom and
+replaced thread_rng() with rng(). Update import and call site
+accordingly.
+- Avoid mutable reference to a temporary value
+- Format random quote helper
+- Merge pull request #78 from lukehinds/rand-up
+
+Fix rand 0.10.0 API compatibility in output.rs
+- Bump which from 7.0.3 to 8.0.0
+
+---
+updated-dependencies:
+- dependency-name: which
+  dependency-version: 8.0.0
+  dependency-type: direct:production
+  update-type: version-update:semver-major
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #73 from lukehinds/dependabot/cargo/which-8.0.0
+
+Bump which from 7.0.3 to 8.0.0
+- Bump clap from 4.5.56 to 4.5.57
+
+---
+updated-dependencies:
+- dependency-name: clap
+  dependency-version: 4.5.57
+  dependency-type: direct:production
+  update-type: version-update:semver-patch
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #74 from lukehinds/dependabot/cargo/clap-4.5.57
+
+Bump clap from 4.5.56 to 4.5.57
+
 ## [0.3.0] - 2026-02-09
 
 ### Added
