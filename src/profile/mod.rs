@@ -119,6 +119,7 @@ pub enum WorkdirAccess {
 
 /// Working directory configuration in a profile
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkdirConfig {
     /// Access level for the current working directory
     #[serde(default)]
@@ -438,5 +439,40 @@ mod tests {
 
         let profile: Profile = toml::from_str(toml_str).unwrap();
         assert_eq!(profile.workdir.access, WorkdirAccess::None);
+    }
+
+    #[test]
+    fn test_interactive_top_level_parsed() {
+        let toml_str = r#"
+            interactive = true
+
+            [meta]
+            name = "test-profile"
+
+            [workdir]
+            access = "readwrite"
+        "#;
+
+        let profile: Profile = toml::from_str(toml_str).unwrap();
+        assert!(profile.interactive);
+        assert_eq!(profile.workdir.access, WorkdirAccess::ReadWrite);
+    }
+
+    #[test]
+    fn test_interactive_under_workdir_rejected() {
+        let toml_str = r#"
+            [meta]
+            name = "test-profile"
+
+            [workdir]
+            access = "readwrite"
+            interactive = true
+        "#;
+
+        let result: std::result::Result<Profile, _> = toml::from_str(toml_str);
+        assert!(
+            result.is_err(),
+            "interactive under [workdir] should be rejected"
+        );
     }
 }
