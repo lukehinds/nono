@@ -5,14 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-02-12
+
+### Added
+
+- Support Unix domain sockets in file capabilities
+- Add community profile claude-code-secretive.toml for users who store SSH keys in macOS Secure Enclave via Secretive and want git commit signing inside the nono sandbox
+
+### Changed
+
+- Merge pull request #80 from boost-rnd/feat/socket-capability-support
+
+feat: support Unix domain sockets in file capabilities
+- Merge pull request #82 from lukehinds/fix-81
+
+fix(linux): skip s'linked /dev stdio aliases when adding Landlock system rules
+- Add --exec and --no-diagnostics flags to run command
+
+The --exec flag forces direct exec mode (TTY preservation) from the
+CLI, overriding the profile's interactive setting. This lets users
+run interactive apps without needing a profile that sets interactive.
+
+The --no-diagnostics flag suppresses the diagnostic footer on command
+failure, useful for scripts that parse stderr.
+
+Also adds serde(deny_unknown_fields) to WorkdirConfig to reject
+misplaced fields like `interactive` under [workdir], with tests
+covering both the valid top-level placement and the rejected case.
+- Silent and interactive do not work together
+- Merge pull request #83 from lukehinds/int-flags
+
+Add --exec and --no-diagnostics flags to run command
+- Added a Security section to the README just above the License section.
+
+It directs users to the SECURITY.md policy and explicitly asks them
+not to open public issues for vulnerability reports.
+- Remove un-useful how it works
+- Add docs links
+
+### Fixed
+
+- Skip symlinked /dev stdio aliases when adding Landlock system rules
+
 ## [0.3.2] - 2026-02-10
 
 ### Changed
 
 - Fix up readme roadmap, logo and news
-- Update slogan
-- Update slogan
-- Add AI caveat
 - Fix claude-code profile VS Code extension install and remove dead profile TOML files
 
 The VS Code extension install failed with EPERM inside the sandbox because
