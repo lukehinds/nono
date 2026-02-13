@@ -5,6 +5,88 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-02-13
+
+### Changed
+
+- Bump tempfile from 3.24.0 to 3.25.0
+
+Bumps [tempfile](https://github.com/Stebalien/tempfile) from 3.24.0 to 3.25.0.
+- [Changelog](https://github.com/Stebalien/tempfile/blob/master/CHANGELOG.md)
+- [Commits](https://github.com/Stebalien/tempfile/commits)
+
+---
+updated-dependencies:
+- dependency-name: tempfile
+  dependency-version: 3.25.0
+  dependency-type: direct:production
+  update-type: version-update:semver-minor
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #84 from always-further/dependabot/cargo/tempfile-3.25.0
+
+Bump tempfile from 3.24.0 to 3.25.0
+- Migrate to new GH org
+- Merge pull request #87 from always-further/org-transfer
+
+Migrate to new GH org
+- Bump clap from 4.5.57 to 4.5.58
+
+Bumps [clap](https://github.com/clap-rs/clap) from 4.5.57 to 4.5.58.
+- [Release notes](https://github.com/clap-rs/clap/releases)
+- [Changelog](https://github.com/clap-rs/clap/blob/master/CHANGELOG.md)
+- [Commits](https://github.com/clap-rs/clap/compare/clap_complete-v4.5.57...clap_complete-v4.5.58)
+
+---
+updated-dependencies:
+- dependency-name: clap
+  dependency-version: 4.5.58
+  dependency-type: direct:production
+  update-type: version-update:semver-patch
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #85 from always-further/dependabot/cargo/clap-4.5.58
+
+Bump clap from 4.5.57 to 4.5.58
+- Bump toml from 0.9.11+spec-1.1.0 to 1.0.0+spec-1.1.0
+
+Bumps [toml](https://github.com/toml-rs/toml) from 0.9.11+spec-1.1.0 to 1.0.0+spec-1.1.0.
+- [Commits](https://github.com/toml-rs/toml/compare/toml-v0.9.11...toml-v1.0.0)
+
+---
+updated-dependencies:
+- dependency-name: toml
+  dependency-version: 1.0.0+spec-1.1.0
+  dependency-type: direct:production
+  update-type: version-update:semver-major
+...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+- Merge pull request #86 from always-further/dependabot/cargo/toml-1.0.0spec-1.1.0
+
+Bump toml from 0.9.11+spec-1.1.0 to 1.0.0+spec-1.1.0
+- Increase logo width in README
+
+Updated logo size in README.md from 400 to 600 pixels.
+- Remove --trust-unsigned flag and fix interactive field docs
+
+Remove the --trust-unsigned CLI flag, UnsignedProfile error variant,
+and signature field from profiles. User profiles are now loaded
+directly without requiring an explicit trust acknowledgement — the
+act of creating a profile in ~/.config/nono/profiles/ is sufficient.
+
+Fix the profile documentation to show `interactive` as a top-level
+TOML field rather than nested under [workdir], which caused it to be
+silently ignored by serde (TOML assigns keys after a [section] header
+to that section, not to the root table).
+
+In the coming library / CLI release, signing will be implemented
+- Merge pull request #90 from always-further/trust-flag
+
+Remove --trust-unsigned flag and fix interactive field docs
+
 ## [0.4.0] - 2026-02-12
 
 ### Added
